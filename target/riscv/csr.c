@@ -5281,6 +5281,114 @@ static RISCVException write_mtinst(CPURISCVState *env, int csrno,
     return RISCV_EXCP_NONE;
 }
 
+#ifdef TARGET_SIGRISCV
+static RISCVException read_sig_mkey(CPURISCVState *env, int csrno,
+                                    target_ulong *val)
+{
+    unsigned idx = csrno - CSR_MKEY_BASE;
+
+    if (idx >= CSR_MKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    *val = env->mkey[idx];
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_mkey(CPURISCVState *env, int csrno,
+                                     target_ulong val, uintptr_t ra)
+{
+    unsigned idx = csrno - CSR_MKEY_BASE;
+
+    if (idx >= CSR_MKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    env->mkey[idx] = val;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_skey(CPURISCVState *env, int csrno,
+                                    target_ulong *val)
+{
+    unsigned idx = csrno - CSR_SKEY_BASE;
+
+    if (idx >= CSR_SKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    *val = env->skey[idx];
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_skey(CPURISCVState *env, int csrno,
+                                     target_ulong val, uintptr_t ra)
+{
+    unsigned idx = csrno - CSR_SKEY_BASE;
+
+    if (idx >= CSR_SKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    env->skey[idx] = val;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_idcsr(CPURISCVState *env, int csrno,
+                                     target_ulong *val)
+{
+    *val = env->idcsr;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_idcsr(CPURISCVState *env, int csrno,
+                                      target_ulong val, uintptr_t ra)
+{
+    env->idcsr = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_pcid(CPURISCVState *env, int csrno,
+                                    target_ulong *val)
+{
+    *val = env->pc_id;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_pcid(CPURISCVState *env, int csrno,
+                                     target_ulong val, uintptr_t ra)
+{
+    env->pc_id = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_gprid(CPURISCVState *env, int csrno,
+                                     target_ulong *val)
+{
+    unsigned idx = csrno - CSR_GPRID_BASE;
+
+    if (idx >= SIGCSR_GPRID_NUM) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    *val = env->gpr_id[idx];
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_gprid(CPURISCVState *env, int csrno,
+                                      target_ulong val, uintptr_t ra)
+{
+    unsigned idx = csrno - CSR_GPRID_BASE;
+
+    if (idx >= SIGCSR_GPRID_NUM) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    env->gpr_id[idx] = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+#endif /* TARGET_SIGRISCV */
+
 /* Physical Memory Protection */
 static RISCVException read_mseccfg(CPURISCVState *env, int csrno,
                                    target_ulong *val)
@@ -5840,6 +5948,51 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
 
     /* zicfiss Extension, shadow stack register */
     [CSR_SSP]  = { "ssp", cfi_ss, read_ssp, write_ssp },
+
+#ifdef TARGET_SIGRISCV
+    /* SigRISCV custom CSRs */
+    [CSR_MKEYL] = { "mkeyl", any, read_sig_mkey, write_sig_mkey },
+    [CSR_MKEYH] = { "mkeyh", any, read_sig_mkey, write_sig_mkey },
+    [CSR_SKEYL] = { "skeyl", any, read_sig_skey, write_sig_skey },
+    [CSR_SKEYH] = { "skeyh", any, read_sig_skey, write_sig_skey },
+    [CSR_IDCSR] = { "idcsr", any, read_sig_idcsr, write_sig_idcsr },
+    [CSR_PCID]  = { "pcid", any, read_sig_pcid, write_sig_pcid },
+#define SIG_GPRID_ENTRY(N) \
+    [CSR_GPRID_BASE + (N)] = { "gprid" #N, any, read_sig_gprid, write_sig_gprid }
+    SIG_GPRID_ENTRY(0),
+    SIG_GPRID_ENTRY(1),
+    SIG_GPRID_ENTRY(2),
+    SIG_GPRID_ENTRY(3),
+    SIG_GPRID_ENTRY(4),
+    SIG_GPRID_ENTRY(5),
+    SIG_GPRID_ENTRY(6),
+    SIG_GPRID_ENTRY(7),
+    SIG_GPRID_ENTRY(8),
+    SIG_GPRID_ENTRY(9),
+    SIG_GPRID_ENTRY(10),
+    SIG_GPRID_ENTRY(11),
+    SIG_GPRID_ENTRY(12),
+    SIG_GPRID_ENTRY(13),
+    SIG_GPRID_ENTRY(14),
+    SIG_GPRID_ENTRY(15),
+    SIG_GPRID_ENTRY(16),
+    SIG_GPRID_ENTRY(17),
+    SIG_GPRID_ENTRY(18),
+    SIG_GPRID_ENTRY(19),
+    SIG_GPRID_ENTRY(20),
+    SIG_GPRID_ENTRY(21),
+    SIG_GPRID_ENTRY(22),
+    SIG_GPRID_ENTRY(23),
+    SIG_GPRID_ENTRY(24),
+    SIG_GPRID_ENTRY(25),
+    SIG_GPRID_ENTRY(26),
+    SIG_GPRID_ENTRY(27),
+    SIG_GPRID_ENTRY(28),
+    SIG_GPRID_ENTRY(29),
+    SIG_GPRID_ENTRY(30),
+    SIG_GPRID_ENTRY(31),
+#undef SIG_GPRID_ENTRY
+#endif
 
 #if !defined(CONFIG_USER_ONLY)
     /* Machine Timers and Counters */

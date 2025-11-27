@@ -265,6 +265,17 @@ struct CPUArchState {
     target_ulong excp_uw2;
     /* sw check code for sw check exception */
     target_ulong sw_check_code;
+
+#ifdef TARGET_SIGRISCV
+    /* Shadow ID management */
+    uint32_t gpr_id[32];
+    uint32_t pc_id;
+    uint32_t idcsr;
+
+    /* Encryption keys */
+    target_ulong mkey[2];
+    target_ulong skey[2];
+#endif
 #ifdef CONFIG_USER_ONLY
     uint32_t elf_flags;
 #endif

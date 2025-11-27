@@ -728,6 +728,13 @@ static void riscv_cpu_reset_hold(Object *obj, ResetType type)
     env->menvcfg = (cpu->cfg.ext_svpbmt ? MENVCFG_PBMTE : 0) |
                    (!cpu->cfg.ext_svade && cpu->cfg.ext_svadu ?
                     MENVCFG_ADUE : 0);
+#ifdef TARGET_SIGRISCV
+    memset(env->gpr_id, 0, sizeof(env->gpr_id));
+    env->pc_id = 0;
+    env->idcsr = 0;
+    env->mkey[0] = env->mkey[1] = 0;
+    env->skey[0] = env->skey[1] = 0;
+#endif
     env->henvcfg = 0;
 
     /* Initialized default priorities of local interrupts. */

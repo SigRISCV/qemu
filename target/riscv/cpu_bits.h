@@ -607,6 +607,28 @@
 /* Zcmt Extension */
 #define CSR_JVT             0x017
 
+#ifdef TARGET_SIGRISCV
+/* SigRISCV key registers */
+#define CSR_MKEYL           0x7f0
+#define CSR_MKEYH           0x7f1
+#define CSR_MKEY_BASE       CSR_MKEYL
+#define CSR_MKEY_LEN        0x2
+
+#define CSR_SKEYL           0x5f0
+#define CSR_SKEYH           0x5f1
+#define CSR_SKEY_BASE       CSR_SKEYL
+#define CSR_SKEY_LEN        0x2
+
+/* SigRISCV shadow-id CSRs */
+#define CSR_IDCSR           0x7d0
+#define CSR_PCID            0x7d1
+#define CSR_GPRID_BASE      0x7e0
+#define CSR_GPRID_LAST      (CSR_GPRID_BASE + 31)
+
+#define SIGCSR_GPRID_NUM    32
+#define SIGCSR_ID_MASK      0x00ffffffu
+#endif /* TARGET_SIGRISCV */
+
 /* mstatus CSR bits */
 #define MSTATUS_UIE         0x00000001
 #define MSTATUS_SIE         0x00000002
