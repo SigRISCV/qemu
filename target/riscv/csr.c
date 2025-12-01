@@ -5281,114 +5281,6 @@ static RISCVException write_mtinst(CPURISCVState *env, int csrno,
     return RISCV_EXCP_NONE;
 }
 
-#ifdef TARGET_SIGRISCV
-static RISCVException read_sig_mkey(CPURISCVState *env, int csrno,
-                                    target_ulong *val)
-{
-    unsigned idx = csrno - CSR_MKEY_BASE;
-
-    if (idx >= CSR_MKEY_LEN) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
-
-    *val = env->mkey[idx];
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException write_sig_mkey(CPURISCVState *env, int csrno,
-                                     target_ulong val, uintptr_t ra)
-{
-    unsigned idx = csrno - CSR_MKEY_BASE;
-
-    if (idx >= CSR_MKEY_LEN) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
-
-    env->mkey[idx] = val;
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException read_sig_skey(CPURISCVState *env, int csrno,
-                                    target_ulong *val)
-{
-    unsigned idx = csrno - CSR_SKEY_BASE;
-
-    if (idx >= CSR_SKEY_LEN) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
-
-    *val = env->skey[idx];
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException write_sig_skey(CPURISCVState *env, int csrno,
-                                     target_ulong val, uintptr_t ra)
-{
-    unsigned idx = csrno - CSR_SKEY_BASE;
-
-    if (idx >= CSR_SKEY_LEN) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
-
-    env->skey[idx] = val;
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException read_sig_idcsr(CPURISCVState *env, int csrno,
-                                     target_ulong *val)
-{
-    *val = env->idcsr;
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException write_sig_idcsr(CPURISCVState *env, int csrno,
-                                      target_ulong val, uintptr_t ra)
-{
-    env->idcsr = val & SIGCSR_ID_MASK;
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException read_sig_pcid(CPURISCVState *env, int csrno,
-                                    target_ulong *val)
-{
-    *val = env->pc_id;
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException write_sig_pcid(CPURISCVState *env, int csrno,
-                                     target_ulong val, uintptr_t ra)
-{
-    env->pc_id = val & SIGCSR_ID_MASK;
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException read_sig_gprid(CPURISCVState *env, int csrno,
-                                     target_ulong *val)
-{
-    unsigned idx = csrno - CSR_GPRID_BASE;
-
-    if (idx >= SIGCSR_GPRID_NUM) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
-
-    *val = env->gpr_id[idx];
-    return RISCV_EXCP_NONE;
-}
-
-static RISCVException write_sig_gprid(CPURISCVState *env, int csrno,
-                                      target_ulong val, uintptr_t ra)
-{
-    unsigned idx = csrno - CSR_GPRID_BASE;
-
-    if (idx >= SIGCSR_GPRID_NUM) {
-        return RISCV_EXCP_ILLEGAL_INST;
-    }
-
-    env->gpr_id[idx] = val & SIGCSR_ID_MASK;
-    return RISCV_EXCP_NONE;
-}
-#endif /* TARGET_SIGRISCV */
-
 /* Physical Memory Protection */
 static RISCVException read_mseccfg(CPURISCVState *env, int csrno,
                                    target_ulong *val)
@@ -5910,6 +5802,121 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
     return RISCV_EXCP_NONE;
 }
 
+#ifdef TARGET_SIGRISCV
+/* SigRISCV CSR functions - defined before array initialization for visibility */
+static RISCVException read_sig_mkey(CPURISCVState *env, int csrno,
+                                    target_ulong *val)
+{
+    unsigned idx = csrno - CSR_MKEY_BASE;
+
+    if (idx >= CSR_MKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    *val = env->mkey[idx];
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_mkey(CPURISCVState *env, int csrno,
+                                     target_ulong val, uintptr_t ra)
+{
+    unsigned idx = csrno - CSR_MKEY_BASE;
+
+    if (idx >= CSR_MKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    env->mkey[idx] = val;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_skey(CPURISCVState *env, int csrno,
+                                    target_ulong *val)
+{
+    unsigned idx = csrno - CSR_SKEY_BASE;
+
+    if (idx >= CSR_SKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    *val = env->skey[idx];
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_skey(CPURISCVState *env, int csrno,
+                                     target_ulong val, uintptr_t ra)
+{
+    unsigned idx = csrno - CSR_SKEY_BASE;
+
+    if (idx >= CSR_SKEY_LEN) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    env->skey[idx] = val;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_idcsr(CPURISCVState *env, int csrno,
+                                     target_ulong *val)
+{
+    *val = env->idcsr;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_idcsr(CPURISCVState *env, int csrno,
+                                      target_ulong val, uintptr_t ra)
+{
+    env->idcsr = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_pcid(CPURISCVState *env, int csrno,
+                                    target_ulong *val)
+{
+    *val = env->pc_id;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_pcid(CPURISCVState *env, int csrno,
+                                     target_ulong val, uintptr_t ra)
+{
+    env->pc_id = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_gprid(CPURISCVState *env, int csrno,
+                                     target_ulong *val)
+{
+    unsigned idx = csrno - CSR_GPRID_BASE;
+
+    if (idx >= SIGCSR_GPRID_NUM) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    *val = env->gpr_id[idx];
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_gprid(CPURISCVState *env, int csrno,
+                                      target_ulong val, uintptr_t ra)
+{
+    unsigned idx = csrno - CSR_GPRID_BASE;
+
+    if (idx >= SIGCSR_GPRID_NUM) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+
+    env->gpr_id[idx] = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+
+/* Wrapper function to make predicate visible in array initialization */
+static RISCVException sigriscv_any(CPURISCVState *env, int csrno)
+{
+    return RISCV_EXCP_NONE;
+}
+#endif /* TARGET_SIGRISCV */
+
 /*
  * Control and Status Register function table
  * riscv_csr_operations::predicate() must be provided for an implemented CSR
@@ -5951,14 +5958,14 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
 
 #ifdef TARGET_SIGRISCV
     /* SigRISCV custom CSRs */
-    [CSR_MKEYL] = { "mkeyl", any, read_sig_mkey, write_sig_mkey },
-    [CSR_MKEYH] = { "mkeyh", any, read_sig_mkey, write_sig_mkey },
-    [CSR_SKEYL] = { "skeyl", any, read_sig_skey, write_sig_skey },
-    [CSR_SKEYH] = { "skeyh", any, read_sig_skey, write_sig_skey },
-    [CSR_IDCSR] = { "idcsr", any, read_sig_idcsr, write_sig_idcsr },
-    [CSR_PCID]  = { "pcid", any, read_sig_pcid, write_sig_pcid },
+    [CSR_MKEYL] = { "mkeyl", sigriscv_any, read_sig_mkey, write_sig_mkey },
+    [CSR_MKEYH] = { "mkeyh", sigriscv_any, read_sig_mkey, write_sig_mkey },
+    [CSR_SKEYL] = { "skeyl", sigriscv_any, read_sig_skey, write_sig_skey },
+    [CSR_SKEYH] = { "skeyh", sigriscv_any, read_sig_skey, write_sig_skey },
+    [CSR_IDCSR] = { "idcsr", sigriscv_any, read_sig_idcsr, write_sig_idcsr },
+    [CSR_PCID]  = { "pcid", sigriscv_any, read_sig_pcid, write_sig_pcid },
 #define SIG_GPRID_ENTRY(N) \
-    [CSR_GPRID_BASE + (N)] = { "gprid" #N, any, read_sig_gprid, write_sig_gprid }
+    [CSR_GPRID_BASE + (N)] = { "gprid" #N, sigriscv_any, read_sig_gprid, write_sig_gprid }
     SIG_GPRID_ENTRY(0),
     SIG_GPRID_ENTRY(1),
     SIG_GPRID_ENTRY(2),
