@@ -1189,6 +1189,9 @@ static uint32_t opcode_at(DisasContextBase *dcbase, target_ulong pc)
 
 /* Include insn module translation function */
 #include "insn_trans/trans_rvi.c.inc"
+#ifdef TARGET_SIGRISCV
+#include "insn_trans/trans_sigriscv.c.inc"
+#endif
 #include "insn_trans/trans_rvm.c.inc"
 #include "insn_trans/trans_rva.c.inc"
 #include "insn_trans/trans_rvf.c.inc"
