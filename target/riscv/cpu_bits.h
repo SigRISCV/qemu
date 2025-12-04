@@ -620,10 +620,10 @@
 #define CSR_SKEY_LEN        0x2
 
 /* SigRISCV shadow-id CSRs */
-#define CSR_IDCSR           0x7d0
-#define CSR_PCID            0x7d1
-#define CSR_GPRID_BASE      0x7e0
+#define CSR_GPRID_BASE      0x7c0
 #define CSR_GPRID_LAST      (CSR_GPRID_BASE + 31)
+#define CSR_IDCSR           0x7e0
+#define CSR_PCID            0x7e1
 
 #define SIGCSR_GPRID_NUM    32
 #define SIGCSR_ID_MASK      0x00ffffffu
