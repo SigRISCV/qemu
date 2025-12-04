@@ -1,8 +1,16 @@
 # FIXME extra_args should accept files()
 dir = meson.current_source_dir()
+cc = meson.get_compiler('c')
+have_sigriscv = cc.has_define('TARGET_SIGRISCV')
+
+insn32_decode_args = ['--static-decode=decode_insn32']
+if have_sigriscv
+  insn32_decode_args += [dir / 'insn32-sigriscv.decode']
+endif
+
 gen = [
   decodetree.process('insn16.decode', extra_args: ['--static-decode=decode_insn16', '--insnwidth=16']),
-  decodetree.process('insn32.decode', extra_args: [dir / 'insn32-sigriscv.decode', '--static-decode=decode_insn32']),
+  decodetree.process('insn32.decode', extra_args: insn32_decode_args),
   decodetree.process('xthead.decode', extra_args: '--static-decode=decode_xthead'),
   decodetree.process('XVentanaCondOps.decode', extra_args: '--static-decode=decode_XVentanaCodeOps'),
 ]
