@@ -9,8 +9,13 @@
 
 static void get_sigriscv_key(CPURISCVState *env, target_ulong *kl, target_ulong *kh)
 {
-    *kl = env->skey[0];
-    *kh = env->skey[1];
+    if (env->priv == PRV_U) {
+        *kl = env->skey[0];
+        *kh = env->skey[1];
+    } else {
+        *kl = env->mkey[0];
+        *kh = env->mkey[1];
+    }
 }
 
 target_ulong helper_sigriscv_encrypt_ptr(CPUArchState *env,
