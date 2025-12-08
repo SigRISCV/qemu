@@ -5578,19 +5578,8 @@ static inline RISCVException riscv_csrrw_check(CPURISCVState *env,
         effective_priv++;
     }
 
-    /* SigRISCV: GPRID, IDCSR, and PCID registers are accessible from Umode */
-#ifdef TARGET_SIGRISCV
-    bool sigriscv_umode_csr = (csrno >= CSR_GPRID_BASE && csrno <= CSR_GPRID_LAST) ||
-                              csrno == CSR_IDCSR || csrno == CSR_PCID;
-    if (sigriscv_umode_csr) {
-        /* Allow access from any privilege level */
-        csr_priv = PRV_U;
-    } else {
-        csr_priv = get_field(csrno, 0x300);
-    }
-#else
+    /* CSR privilege level is determined by CSR address encoding (bits [9:8]) */
     csr_priv = get_field(csrno, 0x300);
-#endif
 
     if (!env->debugger && (effective_priv < csr_priv)) {
         if (csr_priv <= (PRV_S + 1) && env->virt_enabled) {

@@ -620,10 +620,11 @@
 #define CSR_SKEY_LEN        0x2
 
 /* SigRISCV shadow-id CSRs */
-#define CSR_GPRID_BASE      0x7c0
+/* Note: GPRID uses 0x5a0-0x5bf to avoid conflict with CSR_TH_SXSTATUS (0x5c0) */
+#define CSR_GPRID_BASE      0x5a0
 #define CSR_GPRID_LAST      (CSR_GPRID_BASE + 31)
-#define CSR_IDCSR           0x7e0
-#define CSR_PCID            0x7e1
+#define CSR_IDCSR           0x5d0
+#define CSR_PCID            0x5d1
 
 #define SIGCSR_GPRID_NUM    32
 #define SIGCSR_ID_MASK      0x00ffffffu
