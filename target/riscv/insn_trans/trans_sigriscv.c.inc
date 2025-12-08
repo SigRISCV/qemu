@@ -18,7 +18,12 @@ static bool trans_ls(DisasContext *ctx, arg_ls *a)
     }
 
     TCGv base_id = tcg_temp_new();
-    gen_helper_sigriscv_get_gpr_id(base_id, tcg_env, tcg_constant_i32(a->rs1));
+    /* In S/M mode, use 0 for ID in tweak; in U mode, use actual GPR ID */
+    if (ctx->priv == PRV_U) {
+        gen_helper_sigriscv_get_gpr_id(base_id, tcg_env, tcg_constant_i32(a->rs1));
+    } else {
+        tcg_gen_movi_tl(base_id, 0);
+    }
 
     TCGv addr_lower = tcg_temp_new();
     tcg_gen_andi_tl(addr_lower, addr, SIGCSR_PTR_MASK);
@@ -67,7 +72,12 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     tcg_gen_andi_tl(value_masked, src, SIGCSR_PTR_MASK);
 
     TCGv id = tcg_temp_new();
-    gen_helper_sigriscv_get_gpr_id(id, tcg_env, tcg_constant_i32(a->rs2));
+    /* In S/M mode, use 0 for ID in plaintext; in U mode, use actual GPR ID */
+    if (ctx->priv == PRV_U) {
+        gen_helper_sigriscv_get_gpr_id(id, tcg_env, tcg_constant_i32(a->rs2));
+    } else {
+        tcg_gen_movi_tl(id, 0);
+    }
 
     TCGv id_shifted = tcg_temp_new();
     tcg_gen_shli_tl(id_shifted, id, SIGCSR_ID_SHIFT);
@@ -76,7 +86,12 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     tcg_gen_or_tl(plaintext, id_shifted, value_masked);
 
     TCGv base_id = tcg_temp_new();
-    gen_helper_sigriscv_get_gpr_id(base_id, tcg_env, tcg_constant_i32(a->rs1));
+    /* In S/M mode, use 0 for ID in tweak; in U mode, use actual GPR ID */
+    if (ctx->priv == PRV_U) {
+        gen_helper_sigriscv_get_gpr_id(base_id, tcg_env, tcg_constant_i32(a->rs1));
+    } else {
+        tcg_gen_movi_tl(base_id, 0);
+    }
 
     TCGv base_id_shifted = tcg_temp_new();
     tcg_gen_shli_tl(base_id_shifted, base_id, SIGCSR_ID_SHIFT);
