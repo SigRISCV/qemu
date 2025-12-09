@@ -415,6 +415,11 @@ static void gen_set_gpr(DisasContext *ctx, int reg_num, TCGv t)
         if (get_xl_max(ctx) == MXL_RV128) {
             tcg_gen_sari_tl(cpu_gprh[reg_num], cpu_gpr[reg_num], 63);
         }
+
+#ifdef TARGET_SIGRISCV
+        /* Default: clear ID for all GPR writes */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+#endif
     }
 }
 
@@ -436,6 +441,11 @@ static void gen_set_gpri(DisasContext *ctx, int reg_num, target_long imm)
         if (get_xl_max(ctx) == MXL_RV128) {
             tcg_gen_movi_tl(cpu_gprh[reg_num], -(imm < 0));
         }
+
+#ifdef TARGET_SIGRISCV
+        /* Default: clear ID for all GPR writes */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+#endif
     }
 }
 
@@ -445,6 +455,11 @@ static void gen_set_gpr128(DisasContext *ctx, int reg_num, TCGv rl, TCGv rh)
     if (reg_num != 0) {
         tcg_gen_mov_tl(cpu_gpr[reg_num], rl);
         tcg_gen_mov_tl(cpu_gprh[reg_num], rh);
+
+#ifdef TARGET_SIGRISCV
+        /* Default: clear ID for all GPR writes */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+#endif
     }
 }
 
