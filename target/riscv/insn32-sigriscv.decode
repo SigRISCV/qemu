@@ -1,10 +1,15 @@
-# All SigRISCV instructions use opcode OPC_CUSTOM_2 (0b1011011 = 0x5b)
-# Distinguished by funct3:
-#   ls:       funct3=111 (I-type)
-#   ss:       funct3=100 (S-type)
-#   setraw:   funct3=000 (I-type)
-#   switchs:  funct3=001 (I-type)
-#   setnewid: funct3=010 (I-type)
-ls       ............     ..... 111 ..... 1011011 @i
-ss       .......  .....   ..... 100 ..... 1011011 @s
+# opcode: 0b1011011 (0x5b) OPC_CUSTOM_1
+#   setrawid: funct3=010 (I-type)
+#   setnewid: funct3=011 (I-type)
+#   switchs:  funct3=100 (R-type)
+# opcode: 0b0100011 (0x23) OPC_STORE
+#   ss:       funct3=101 (S-type)
+#   ss.id:    funct3=110 (S-type)
+# opcode: 0b0001111 (0xf)  OPC_MISC_MEM
+#   ls:       funct3=011 (I-type)
+#   ls.map:   funct3=100 (I-type)
 
+ls       ............     ..... 011 ..... 0001111 @i
+ss       .......  .....   ..... 101 ..... 0100011 @s
+setrawid ............     ..... 010 ..... 1011011 @i
+setnewid ............     ..... 011 ..... 1011011 @i
