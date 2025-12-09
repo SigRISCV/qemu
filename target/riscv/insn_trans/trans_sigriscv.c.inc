@@ -109,5 +109,49 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     return true;
 }
 
+static bool trans_setrawid(DisasContext *ctx, arg_setrawid *a)
+{
+    decode_save_opc(ctx, 0);
+
+    TCGv src = get_gpr(ctx, a->rs1, EXT_NONE);
+    TCGv result = tcg_temp_new();
+    tcg_gen_addi_tl(result, src, a->imm);
+
+    if (a->rd != 0) {
+        gen_set_gpr(ctx, a->rd, result);
+        /* Set rd.id = 0 */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), ctx->zero);
+    }
+
+    return true;
+}
+
+static bool trans_setnewid(DisasContext *ctx, arg_setnewid *a)
+{
+    decode_save_opc(ctx, 0);
+
+    TCGv src = get_gpr(ctx, a->rs1, EXT_NONE);
+    TCGv result = tcg_temp_new();
+    tcg_gen_addi_tl(result, src, a->imm);
+
+    if (a->rd != 0) {
+        gen_set_gpr(ctx, a->rd, result);
+
+        /* Get current IDCSR value */
+        TCGv idcsr = tcg_temp_new();
+        gen_helper_sigriscv_get_idcsr(idcsr, tcg_env);
+
+        /* Set rd.id = idcsr */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), idcsr);
+
+        /* Increment IDCSR: idcsr++ */
+        TCGv new_idcsr = tcg_temp_new();
+        tcg_gen_addi_tl(new_idcsr, idcsr, 1);
+        gen_helper_sigriscv_set_idcsr(tcg_env, new_idcsr);
+    }
+
+    return true;
+}
+
 #endif /* TARGET_SIGRISCV */
 
