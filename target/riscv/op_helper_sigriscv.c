@@ -60,5 +60,17 @@ void helper_sigriscv_set_gpr_id(CPUArchState *env, uint32_t reg, target_ulong id
     riscv_env->gpr_id[reg] = id & SIGCSR_ID_MASK;
 }
 
+target_ulong helper_sigriscv_get_idcsr(CPUArchState *env)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    return riscv_env->idcsr & SIGCSR_ID_MASK;
+}
+
+void helper_sigriscv_set_idcsr(CPUArchState *env, target_ulong id)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    riscv_env->idcsr = id & SIGCSR_ID_MASK;
+}
+
 #endif /* TARGET_SIGRISCV */
 

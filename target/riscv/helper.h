@@ -133,6 +133,8 @@ DEF_HELPER_2(sigriscv_get_gpr_id, tl, env, i32)
 DEF_HELPER_3(sigriscv_set_gpr_id, void, env, i32, tl)
 DEF_HELPER_3(sigriscv_encrypt_ptr, tl, env, tl, tl)
 DEF_HELPER_3(sigriscv_decrypt_ptr, tl, env, tl, tl)
+DEF_HELPER_1(sigriscv_get_idcsr, tl, env)
+DEF_HELPER_2(sigriscv_set_idcsr, void, env, tl)
 #endif
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_1(sret, tl, env)
