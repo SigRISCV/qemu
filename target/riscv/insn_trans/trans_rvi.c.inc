@@ -87,9 +87,9 @@ static bool trans_auipc(DisasContext *ctx, arg_auipc *a)
 
 #ifdef TARGET_SIGRISCV
     if (a->rd != 0) {
-        /* Inherit PC's ID from PCID CSR */
+        /* Inherit PC's ID from env->pc_id */
         TCGv pc_id = tcg_temp_new();
-        gen_helper_csrr(pc_id, tcg_env, tcg_constant_i32(CSR_PCID));
+        tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
     }
 #endif
@@ -103,9 +103,9 @@ static bool trans_jal(DisasContext *ctx, arg_jal *a)
 
 #ifdef TARGET_SIGRISCV
     if (a->rd != 0) {
-        /* Inherit PC's ID from PCID CSR */
+        /* Inherit PC's ID from env->pc_id */
         TCGv pc_id = tcg_temp_new();
-        gen_helper_csrr(pc_id, tcg_env, tcg_constant_i32(CSR_PCID));
+        tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
     }
 #endif
@@ -186,9 +186,9 @@ static bool trans_jalr(DisasContext *ctx, arg_jalr *a)
 
 #ifdef TARGET_SIGRISCV
     if (a->rd != 0) {
-        /* Inherit PC's ID from PCID CSR */
+        /* Inherit PC's ID from env->pc_id */
         TCGv pc_id = tcg_temp_new();
-        gen_helper_csrr(pc_id, tcg_env, tcg_constant_i32(CSR_PCID));
+        tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
     }
 #endif
