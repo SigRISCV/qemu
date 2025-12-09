@@ -84,12 +84,32 @@ static bool trans_auipc(DisasContext *ctx, arg_auipc *a)
     TCGv target_pc = dest_gpr(ctx, a->rd);
     gen_pc_plus_diff(target_pc, ctx, a->imm);
     gen_set_gpr(ctx, a->rd, target_pc);
+
+#ifdef TARGET_SIGRISCV
+    if (a->rd != 0) {
+        /* Inherit PC's ID from PCID CSR */
+        TCGv pc_id = tcg_temp_new();
+        gen_helper_csrr(pc_id, tcg_env, tcg_constant_i32(CSR_PCID));
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
+    }
+#endif
+
     return true;
 }
 
 static bool trans_jal(DisasContext *ctx, arg_jal *a)
 {
     gen_jal(ctx, a->rd, a->imm);
+
+#ifdef TARGET_SIGRISCV
+    if (a->rd != 0) {
+        /* Inherit PC's ID from PCID CSR */
+        TCGv pc_id = tcg_temp_new();
+        gen_helper_csrr(pc_id, tcg_env, tcg_constant_i32(CSR_PCID));
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
+    }
+#endif
+
     return true;
 }
 
@@ -163,6 +183,15 @@ static bool trans_jalr(DisasContext *ctx, arg_jalr *a)
 
     gen_pc_plus_diff(succ_pc, ctx, ctx->cur_insn_len);
     gen_set_gpr(ctx, a->rd, succ_pc);
+
+#ifdef TARGET_SIGRISCV
+    if (a->rd != 0) {
+        /* Inherit PC's ID from PCID CSR */
+        TCGv pc_id = tcg_temp_new();
+        gen_helper_csrr(pc_id, tcg_env, tcg_constant_i32(CSR_PCID));
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
+    }
+#endif
 
 #ifndef CONFIG_USER_ONLY
     if (ctx->cfg_ptr->ext_smctr || ctx->cfg_ptr->ext_ssctr) {
@@ -574,7 +603,22 @@ static void gen_addi2_i128(TCGv retl, TCGv reth,
 
 static bool trans_addi(DisasContext *ctx, arg_addi *a)
 {
-    return gen_arith_imm_fn(ctx, a, EXT_NONE, tcg_gen_addi_tl, gen_addi2_i128);
+#ifdef TARGET_SIGRISCV
+    /* Check rs1 ID before gen_arith_imm_fn clears it */
+    TCGv rs1_id = tcg_temp_new();
+    gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+#endif
+
+    bool ret = gen_arith_imm_fn(ctx, a, EXT_NONE, tcg_gen_addi_tl, gen_addi2_i128);
+
+#ifdef TARGET_SIGRISCV
+    if (ret && a->rd != 0) {
+        /* Inherit rs1.ID if rs1 is a pointer */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), rs1_id);
+    }
+#endif
+
+    return ret;
 }
 
 static void gen_slt(TCGv ret, TCGv s1, TCGv s2)
@@ -692,12 +736,58 @@ static bool trans_srai(DisasContext *ctx, arg_srai *a)
 
 static bool trans_add(DisasContext *ctx, arg_add *a)
 {
-    return gen_arith(ctx, a, EXT_NONE, tcg_gen_add_tl, tcg_gen_add2_tl);
+#ifdef TARGET_SIGRISCV
+    /* Check IDs before gen_arith clears them */
+    TCGv rs1_id = tcg_temp_new();
+    TCGv rs2_id = tcg_temp_new();
+    gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+    gen_helper_sigriscv_get_gpr_id(rs2_id, tcg_env, tcg_constant_i32(a->rs2));
+#endif
+
+    bool ret = gen_arith(ctx, a, EXT_NONE, tcg_gen_add_tl, tcg_gen_add2_tl);
+
+#ifdef TARGET_SIGRISCV
+    if (ret && a->rd != 0) {
+        /* Inherit ID: prefer rs1.ID, otherwise rs2.ID */
+        TCGv id_to_set = tcg_temp_new();
+        TCGLabel *rs1_nonzero = gen_new_label();
+        TCGLabel *done = gen_new_label();
+        
+        /* If rs1.ID != 0, use rs1.ID */
+        tcg_gen_brcondi_tl(TCG_COND_NE, rs1_id, 0, rs1_nonzero);
+        /* Otherwise, use rs2.ID (may be 0) */
+        tcg_gen_mov_tl(id_to_set, rs2_id);
+        tcg_gen_br(done);
+        
+        gen_set_label(rs1_nonzero);
+        tcg_gen_mov_tl(id_to_set, rs1_id);
+        
+        gen_set_label(done);
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), id_to_set);
+    }
+#endif
+
+    return ret;
 }
 
 static bool trans_sub(DisasContext *ctx, arg_sub *a)
 {
-    return gen_arith(ctx, a, EXT_NONE, tcg_gen_sub_tl, tcg_gen_sub2_tl);
+#ifdef TARGET_SIGRISCV
+    /* Check rs1 ID before gen_arith clears it */
+    TCGv rs1_id = tcg_temp_new();
+    gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+#endif
+
+    bool ret = gen_arith(ctx, a, EXT_NONE, tcg_gen_sub_tl, tcg_gen_sub2_tl);
+
+#ifdef TARGET_SIGRISCV
+    if (ret && a->rd != 0) {
+        /* Inherit rs1.ID if rs1 is a pointer */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), rs1_id);
+    }
+#endif
+
+    return ret;
 }
 
 static void gen_sll_i128(TCGv destl, TCGv desth,
