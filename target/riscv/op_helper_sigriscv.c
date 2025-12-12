@@ -72,5 +72,42 @@ void helper_sigriscv_set_idcsr(CPUArchState *env, target_ulong id)
     riscv_env->idcsr = id & SIGCSR_ID_MASK;
 }
 
+void helper_sigriscv_debug(CPUArchState *env)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    int i;
+
+    fprintf(stderr, "=== SigRISCV Debug Info ===\n");
+    
+    /* Print skey */
+    fprintf(stderr, "SKEY: 0x%016lx 0x%016lx\n", 
+            (unsigned long)riscv_env->skey[0], 
+            (unsigned long)riscv_env->skey[1]);
+    
+    /* Print mkey */
+    fprintf(stderr, "MKEY: 0x%016lx 0x%016lx\n", 
+            (unsigned long)riscv_env->mkey[0], 
+            (unsigned long)riscv_env->mkey[1]);
+    
+    /* Print PCID */
+    fprintf(stderr, "PCID: 0x%08x\n", riscv_env->pc_id);
+    
+    /* Print IDCSR */
+    fprintf(stderr, "IDCSR: 0x%08x\n", riscv_env->idcsr);
+    
+    /* Print all GPR IDs */
+    fprintf(stderr, "GPR IDs:\n");
+    for (i = 0; i < 32; i++) {
+        fprintf(stderr, "  x%2d: 0x%08x", i, riscv_env->gpr_id[i]);
+        if (i % 4 == 3) {
+            fprintf(stderr, "\n");
+        } else {
+            fprintf(stderr, "  ");
+        }
+    }
+    
+    fprintf(stderr, "===========================\n");
+}
+
 #endif /* TARGET_SIGRISCV */
 
