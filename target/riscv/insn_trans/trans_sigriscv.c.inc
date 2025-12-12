@@ -153,5 +153,12 @@ static bool trans_setnewid(DisasContext *ctx, arg_setnewid *a)
     return true;
 }
 
+static bool trans_debug(DisasContext *ctx, arg_debug *a)
+{
+    decode_save_opc(ctx, 0);
+    gen_helper_sigriscv_debug(tcg_env);
+    return true;
+}
+
 #endif /* TARGET_SIGRISCV */
 
