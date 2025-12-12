@@ -417,8 +417,14 @@ static void gen_set_gpr(DisasContext *ctx, int reg_num, TCGv t)
         }
 
 #ifdef TARGET_SIGRISCV
-        /* Default: clear ID for all GPR writes */
-        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+        /* 
+         * ID operations are only active in U-mode.
+         * In S/M mode, kernel manages IDs but instructions don't modify them.
+         */
+        if (ctx->priv == PRV_U) {
+            /* Default: clear ID for all GPR writes in U-mode */
+            gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+        }
 #endif
     }
 }
@@ -443,8 +449,10 @@ static void gen_set_gpri(DisasContext *ctx, int reg_num, target_long imm)
         }
 
 #ifdef TARGET_SIGRISCV
-        /* Default: clear ID for all GPR writes */
+        /* ID operations only in U-mode */
+        if (ctx->priv == PRV_U) {
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+        }
 #endif
     }
 }
@@ -457,8 +465,10 @@ static void gen_set_gpr128(DisasContext *ctx, int reg_num, TCGv rl, TCGv rh)
         tcg_gen_mov_tl(cpu_gprh[reg_num], rh);
 
 #ifdef TARGET_SIGRISCV
-        /* Default: clear ID for all GPR writes */
+        /* ID operations only in U-mode */
+        if (ctx->priv == PRV_U) {
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(reg_num), ctx->zero);
+        }
 #endif
     }
 }

@@ -86,7 +86,8 @@ static bool trans_auipc(DisasContext *ctx, arg_auipc *a)
     gen_set_gpr(ctx, a->rd, target_pc);
 
 #ifdef TARGET_SIGRISCV
-    if (a->rd != 0) {
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U && a->rd != 0) {
         /* Inherit PC's ID from env->pc_id */
         TCGv pc_id = tcg_temp_new();
         tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
@@ -102,7 +103,8 @@ static bool trans_jal(DisasContext *ctx, arg_jal *a)
     gen_jal(ctx, a->rd, a->imm);
 
 #ifdef TARGET_SIGRISCV
-    if (a->rd != 0) {
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U && a->rd != 0) {
         /* Inherit PC's ID from env->pc_id */
         TCGv pc_id = tcg_temp_new();
         tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
@@ -185,7 +187,8 @@ static bool trans_jalr(DisasContext *ctx, arg_jalr *a)
     gen_set_gpr(ctx, a->rd, succ_pc);
 
 #ifdef TARGET_SIGRISCV
-    if (a->rd != 0) {
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U && a->rd != 0) {
         /* Inherit PC's ID from env->pc_id */
         TCGv pc_id = tcg_temp_new();
         tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
@@ -604,16 +607,20 @@ static void gen_addi2_i128(TCGv retl, TCGv reth,
 static bool trans_addi(DisasContext *ctx, arg_addi *a)
 {
 #ifdef TARGET_SIGRISCV
-    /* Check rs1 ID before gen_arith_imm_fn clears it */
-    TCGv rs1_id = tcg_temp_new();
-    gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+    TCGv rs1_id = NULL;
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U) {
+        /* Check rs1 ID before gen_arith_imm_fn clears it */
+        rs1_id = tcg_temp_new();
+        gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+    }
 #endif
 
     bool ret = gen_arith_imm_fn(ctx, a, EXT_NONE, tcg_gen_addi_tl, gen_addi2_i128);
 
 #ifdef TARGET_SIGRISCV
-    if (ret && a->rd != 0) {
-        /* Inherit rs1.ID if rs1 is a pointer */
+    if (ret && ctx->priv == PRV_U && a->rd != 0 && rs1_id != NULL) {
+        /* Inherit rs1.ID if rs1 is a pointer (U-mode only) */
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), rs1_id);
     }
 #endif
@@ -737,18 +744,23 @@ static bool trans_srai(DisasContext *ctx, arg_srai *a)
 static bool trans_add(DisasContext *ctx, arg_add *a)
 {
 #ifdef TARGET_SIGRISCV
-    /* Check IDs before gen_arith clears them */
-    TCGv rs1_id = tcg_temp_new();
-    TCGv rs2_id = tcg_temp_new();
-    gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
-    gen_helper_sigriscv_get_gpr_id(rs2_id, tcg_env, tcg_constant_i32(a->rs2));
+    TCGv rs1_id = NULL;
+    TCGv rs2_id = NULL;
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U) {
+        /* Check IDs before gen_arith clears them */
+        rs1_id = tcg_temp_new();
+        rs2_id = tcg_temp_new();
+        gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+        gen_helper_sigriscv_get_gpr_id(rs2_id, tcg_env, tcg_constant_i32(a->rs2));
+    }
 #endif
 
     bool ret = gen_arith(ctx, a, EXT_NONE, tcg_gen_add_tl, tcg_gen_add2_tl);
 
 #ifdef TARGET_SIGRISCV
-    if (ret && a->rd != 0) {
-        /* Inherit ID: prefer rs1.ID, otherwise rs2.ID */
+    if (ret && ctx->priv == PRV_U && a->rd != 0 && rs1_id != NULL && rs2_id != NULL) {
+        /* Inherit ID: prefer rs1.ID, otherwise rs2.ID (U-mode only) */
         TCGv id_to_set = tcg_temp_new();
         TCGLabel *rs1_nonzero = gen_new_label();
         TCGLabel *done = gen_new_label();
@@ -773,16 +785,20 @@ static bool trans_add(DisasContext *ctx, arg_add *a)
 static bool trans_sub(DisasContext *ctx, arg_sub *a)
 {
 #ifdef TARGET_SIGRISCV
-    /* Check rs1 ID before gen_arith clears it */
-    TCGv rs1_id = tcg_temp_new();
-    gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+    TCGv rs1_id = NULL;
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U) {
+        /* Check rs1 ID before gen_arith clears it */
+        rs1_id = tcg_temp_new();
+        gen_helper_sigriscv_get_gpr_id(rs1_id, tcg_env, tcg_constant_i32(a->rs1));
+    }
 #endif
 
     bool ret = gen_arith(ctx, a, EXT_NONE, tcg_gen_sub_tl, tcg_gen_sub2_tl);
 
 #ifdef TARGET_SIGRISCV
-    if (ret && a->rd != 0) {
-        /* Inherit rs1.ID if rs1 is a pointer */
+    if (ret && ctx->priv == PRV_U && a->rd != 0 && rs1_id != NULL) {
+        /* Inherit rs1.ID if rs1 is a pointer (U-mode only) */
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), rs1_id);
     }
 #endif
