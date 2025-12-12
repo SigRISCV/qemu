@@ -511,6 +511,12 @@ static bool gen_store_tl(DisasContext *ctx, arg_sb *a, MemOp memop)
     }
 
     tcg_gen_qemu_st_tl(data, addr, ctx->mem_idx, memop);
+
+#ifdef TARGET_SIGRISCV
+    if (ctx->priv == PRV_U && a->rs2 != 0){
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rs2), ctx->zero);
+    }
+#endif
     return true;
 }
 
@@ -531,6 +537,12 @@ static bool gen_store_i128(DisasContext *ctx, arg_sb *a, MemOp memop)
         tcg_gen_addi_tl(addrl, addrl, 8);
         tcg_gen_qemu_st_tl(src2h, addrl, ctx->mem_idx, MO_TEUQ);
     }
+
+#ifdef TARGET_SIGRISCV
+    if (ctx->priv == PRV_U && a->rs2 != 0){
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rs2), ctx->zero);
+    }
+#endif
     return true;
 }
 
