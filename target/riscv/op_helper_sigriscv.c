@@ -56,6 +56,10 @@ void helper_sigriscv_set_gpr_id(CPUArchState *env, uint32_t reg, target_ulong id
     if (reg == 0 || reg >= SIGCSR_GPRID_NUM) {
         return;
     }
+    // Check USE bit in U-mode (bit 30 of idcsr)
+    if (riscv_env->priv == PRV_U && !(riscv_env->idcsr & IDCSR_USE)) {
+        return;
+    }
 
     riscv_env->gpr_id[reg] = id & SIGCSR_ID_MASK;
 }
