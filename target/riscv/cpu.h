@@ -270,7 +270,10 @@ struct CPUArchState {
     /* Shadow ID management */
     uint32_t gpr_id[32];
     uint32_t pc_id;
-    uint32_t idcsr;
+    uint32_t idcsr;  /* bits[23:0]: counter, bit[30]: USE, bit[31]: UPSE */
+    target_ulong encmap;
+    target_ulong exitraw;
+    target_ulong hashsig;
 
     /* Encryption keys */
     target_ulong mkey[2];

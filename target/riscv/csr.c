@@ -5868,7 +5868,8 @@ static RISCVException read_sig_idcsr(CPURISCVState *env, int csrno,
 static RISCVException write_sig_idcsr(CPURISCVState *env, int csrno,
                                       target_ulong val, uintptr_t ra)
 {
-    env->idcsr = val & SIGCSR_ID_MASK;
+    /* IDCSR: bits[23:0]=counter, bit[30]=USE, bit[31]=UPSE */
+    env->idcsr = val & (IDCSR_COUNTER_MASK | IDCSR_USE | IDCSR_UPSE);
     return RISCV_EXCP_NONE;
 }
 
@@ -5883,6 +5884,48 @@ static RISCVException write_sig_pcid(CPURISCVState *env, int csrno,
                                      target_ulong val, uintptr_t ra)
 {
     env->pc_id = val & SIGCSR_ID_MASK;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_encmap(CPURISCVState *env, int csrno,
+                                      target_ulong *val)
+{
+    *val = env->encmap;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_encmap(CPURISCVState *env, int csrno,
+                                       target_ulong val, uintptr_t ra)
+{
+    env->encmap = val;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_exitraw(CPURISCVState *env, int csrno,
+                                       target_ulong *val)
+{
+    *val = env->exitraw;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_exitraw(CPURISCVState *env, int csrno,
+                                        target_ulong val, uintptr_t ra)
+{
+    env->exitraw = val;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_sig_hashsig(CPURISCVState *env, int csrno,
+                                       target_ulong *val)
+{
+    *val = env->hashsig;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_sig_hashsig(CPURISCVState *env, int csrno,
+                                        target_ulong val, uintptr_t ra)
+{
+    env->hashsig = val;
     return RISCV_EXCP_NONE;
 }
 
@@ -5966,6 +6009,9 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     [CSR_SKEYH] = { "skeyh", sigriscv_any, read_sig_skey, write_sig_skey },
     [CSR_IDCSR] = { "idcsr", sigriscv_any, read_sig_idcsr, write_sig_idcsr },
     [CSR_PCID]  = { "pcid", sigriscv_any, read_sig_pcid, write_sig_pcid },
+    [CSR_ENCMAP] = { "encmap", sigriscv_any, read_sig_encmap, write_sig_encmap },
+    [CSR_EXITRAW] = { "exitraw", sigriscv_any, read_sig_exitraw, write_sig_exitraw },
+    [CSR_HASHSIG] = { "hashsig", sigriscv_any, read_sig_hashsig, write_sig_hashsig },
 #define SIG_GPRID_ENTRY(N) \
     [CSR_GPRID_BASE + (N)] = { "gprid" #N, sigriscv_any, read_sig_gprid, write_sig_gprid }
     SIG_GPRID_ENTRY(0),
