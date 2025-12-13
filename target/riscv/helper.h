@@ -135,7 +135,10 @@ DEF_HELPER_3(sigriscv_encrypt_ptr, tl, env, tl, tl)
 DEF_HELPER_3(sigriscv_decrypt_ptr, tl, env, tl, tl)
 DEF_HELPER_1(sigriscv_get_idcsr, tl, env)
 DEF_HELPER_2(sigriscv_set_idcsr, void, env, tl)
+DEF_HELPER_1(sigriscv_check_use_enabled, tl, env)
 DEF_HELPER_1(sigriscv_debug, void, env)
+DEF_HELPER_1(sigriscv_hash_callee_regs, tl, env)
+DEF_HELPER_3(sigriscv_check_upse_return, void, env, tl, ptr)
 #endif
 #ifndef CONFIG_USER_ONLY
 DEF_HELPER_1(sret, tl, env)

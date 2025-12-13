@@ -109,5 +109,70 @@ void helper_sigriscv_debug(CPUArchState *env)
     fprintf(stderr, "===========================\n");
 }
 
+target_ulong helper_sigriscv_check_use_enabled(CPUArchState *env)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    // Check USE bit (bit 30 of idcsr) in U-mode
+    if (riscv_env->priv == PRV_U) {
+        return (riscv_env->idcsr & IDCSR_USE) ? 1 : 0;
+    }
+    // S/M mode: always enabled
+    return 1;
+}
+
+target_ulong helper_sigriscv_hash_callee_regs(CPUArchState *env)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    target_ulong hash = 0;
+    
+    // Hash callee-saved registers: s0-s11 (x8-x9, x18-x27) and sp (x2)
+    static const int callee_saved_regs[] = {
+        2,   /* sp */
+        8, 9,   /* s0, s1 */
+        18, 19, 20, 21, 22, 23, 24, 25, 26, 27  /* s2-s11 */
+    };
+    
+    for (int i = 0; i < sizeof(callee_saved_regs) / sizeof(callee_saved_regs[0]); i++) {
+        int reg = callee_saved_regs[i];
+        target_ulong val = riscv_env->gpr[reg];
+        target_ulong id = riscv_env->gpr_id[reg];
+        
+        // Combine value and ID, then XOR with rotation
+        target_ulong combined = val ^ (id << 40);
+        hash ^= combined;
+        // Rotate hash for better mixing
+        hash = (hash << 13) | (hash >> (64 - 13));
+    }
+    
+    return hash;
+}
+
+void helper_sigriscv_check_upse_return(CPUArchState *env, target_ulong next_pc, 
+                                       void *retaddr)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    
+    // Check if UPSE bit (bit 31 of idcsr) == 1
+    if (!(riscv_env->idcsr & IDCSR_UPSE)) {
+        return;  // Normal return, no check needed
+    }
+    
+    // Check if next_pc == exitraw
+    if (next_pc == riscv_env->exitraw) {
+        // Verify hash
+        target_ulong current_hash = helper_sigriscv_hash_callee_regs(env);
+        
+        if (current_hash == riscv_env->hashsig) {
+            // Hash matches, restore state
+            riscv_env->idcsr &= ~IDCSR_UPSE;  /* Clear UPSE (bit 31) */
+            riscv_env->idcsr |= IDCSR_USE;    /* Set USE (bit 30) */
+        } else {
+            // Hash mismatch, trigger illegal instruction exception
+            riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, (uintptr_t)retaddr);
+        }
+    }
+    // else: returning to different address, do nothing
+}
+
 #endif /* TARGET_SIGRISCV */
 
