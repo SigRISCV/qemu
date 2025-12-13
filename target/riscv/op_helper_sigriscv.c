@@ -92,8 +92,17 @@ void helper_sigriscv_debug(CPUArchState *env)
     /* Print PCID */
     fprintf(stderr, "PCID: 0x%08x\n", riscv_env->pc_id);
     
-    /* Print IDCSR */
-    fprintf(stderr, "IDCSR: 0x%08x\n", riscv_env->idcsr);
+    /* Print IDCSR with bit fields */
+    fprintf(stderr, "IDCSR: 0x%08x (counter=%u, USE=%u, UPSE=%u)\n", 
+            riscv_env->idcsr,
+            riscv_env->idcsr & IDCSR_COUNTER_MASK,
+            (riscv_env->idcsr & IDCSR_USE) ? 1 : 0,
+            (riscv_env->idcsr & IDCSR_UPSE) ? 1 : 0);
+    
+    /* Print new CSRs */
+    fprintf(stderr, "ENCMAP: 0x%016lx\n", (unsigned long)riscv_env->encmap);
+    fprintf(stderr, "EXITRAW: 0x%016lx\n", (unsigned long)riscv_env->exitraw);
+    fprintf(stderr, "HASHSIG: 0x%016lx\n", (unsigned long)riscv_env->hashsig);
     
     /* Print all GPR IDs */
     fprintf(stderr, "GPR IDs:\n");
