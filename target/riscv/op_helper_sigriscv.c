@@ -63,13 +63,16 @@ void helper_sigriscv_set_gpr_id(CPUArchState *env, uint32_t reg, target_ulong id
 target_ulong helper_sigriscv_get_idcsr(CPUArchState *env)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    return riscv_env->idcsr & SIGCSR_ID_MASK;
+    // Return only the counter part [23:0]
+    return riscv_env->idcsr & IDCSR_COUNTER_MASK;
 }
 
 void helper_sigriscv_set_idcsr(CPUArchState *env, target_ulong id)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    riscv_env->idcsr = id & SIGCSR_ID_MASK;
+    // Only update counter part [23:0], preserve USE/UPSE bits
+    riscv_env->idcsr = (riscv_env->idcsr & (IDCSR_USE | IDCSR_UPSE)) | 
+                       (id & IDCSR_COUNTER_MASK);
 }
 
 void helper_sigriscv_debug(CPUArchState *env)
