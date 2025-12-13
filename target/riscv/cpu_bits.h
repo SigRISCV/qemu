@@ -624,12 +624,20 @@
 #define CSR_GPRID_LAST      (CSR_GPRID_BASE + 31)
 #define CSR_PCID            0x5f2
 #define CSR_IDCSR           0x5f3
+#define CSR_ENCMAP          0x5f4
+#define CSR_EXITRAW         0x5f5
+#define CSR_HASHSIG         0x5f6
 
 #define SIGCSR_GPRID_NUM    32
 #define SIGCSR_ID_MASK      0x00ffffffu
 #define SIGCSR_ID_SHIFT     40
 #define SIGCSR_PTR_BITS     40
 #define SIGCSR_PTR_MASK     ((1ULL << SIGCSR_PTR_BITS) - 1)
+
+/* IDCSR bit fields */
+#define IDCSR_COUNTER_MASK  0x00ffffffu  /* ID counter: bits [23:0] */
+#define IDCSR_USE           0x40000000u  /* SIG enable bit: bit 30 */
+#define IDCSR_UPSE          0x80000000u  /* SIG previous enable bit: bit 31 */
 #endif /* TARGET_SIGRISCV */
 
 /* mstatus CSR bits */
