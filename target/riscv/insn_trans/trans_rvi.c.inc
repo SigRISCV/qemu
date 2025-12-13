@@ -194,6 +194,11 @@ static bool trans_jalr(DisasContext *ctx, arg_jalr *a)
         tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
     }
+    
+    /* Check UPSE on returns (jalr with rs1=x1/ra) */
+    if (ctx->priv == PRV_U && a->rs1 == 1) {
+        gen_helper_sigriscv_check_upse_return(tcg_env, target_pc, tcg_constant_ptr(0));
+    }
 #endif
 
 #ifndef CONFIG_USER_ONLY
