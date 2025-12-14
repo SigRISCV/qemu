@@ -136,7 +136,7 @@ DEF_HELPER_3(sigriscv_decrypt_ptr, tl, env, tl, tl)
 DEF_HELPER_1(sigriscv_get_idcsr, tl, env)
 DEF_HELPER_2(sigriscv_set_idcsr, void, env, tl)
 DEF_HELPER_1(sigriscv_check_use_enabled, tl, env)
-DEF_HELPER_1(sigriscv_debug, void, env)
+DEF_HELPER_5(sigriscv_debug, tl, env, tl, i32, i32, ptr)
 DEF_HELPER_1(sigriscv_hash_callee_regs, tl, env)
 DEF_HELPER_3(sigriscv_check_upse_return, void, env, tl, ptr)
 #endif

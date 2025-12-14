@@ -79,50 +79,145 @@ void helper_sigriscv_set_idcsr(CPUArchState *env, target_ulong id)
                        (id & IDCSR_COUNTER_MASK);
 }
 
-void helper_sigriscv_debug(CPUArchState *env)
+target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm, 
+                                    uint32_t rs1, uint32_t rd, void *retaddr)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     int i;
+    target_ulong result = 0;
 
-    fprintf(stderr, "=== SigRISCV Debug Info ===\n");
-    
-    /* Print skey */
-    fprintf(stderr, "SKEY: 0x%016lx 0x%016lx\n", 
-            (unsigned long)riscv_env->skey[0], 
-            (unsigned long)riscv_env->skey[1]);
-    
-    /* Print mkey */
-    fprintf(stderr, "MKEY: 0x%016lx 0x%016lx\n", 
-            (unsigned long)riscv_env->mkey[0], 
-            (unsigned long)riscv_env->mkey[1]);
-    
-    /* Print PCID */
-    fprintf(stderr, "PCID: 0x%08x\n", riscv_env->pc_id);
-    
-    /* Print IDCSR with bit fields */
-    fprintf(stderr, "IDCSR: 0x%08x (counter=%u, USE=%u, UPSE=%u)\n", 
-            riscv_env->idcsr,
-            riscv_env->idcsr & IDCSR_COUNTER_MASK,
-            (riscv_env->idcsr & IDCSR_USE) ? 1 : 0,
-            (riscv_env->idcsr & IDCSR_UPSE) ? 1 : 0);
-    
-    /* Print new CSRs */
-    fprintf(stderr, "ENCMAP: 0x%016lx\n", (unsigned long)riscv_env->encmap);
-    fprintf(stderr, "EXITRAW: 0x%016lx\n", (unsigned long)riscv_env->exitraw);
-    fprintf(stderr, "HASHSIG: 0x%016lx\n", (unsigned long)riscv_env->hashsig);
-    
-    /* Print all GPR IDs */
-    fprintf(stderr, "GPR IDs:\n");
-    for (i = 0; i < 32; i++) {
-        fprintf(stderr, "  x%2d: 0x%08x", i, riscv_env->gpr_id[i]);
-        if (i % 4 == 3) {
-            fprintf(stderr, "\n");
-        } else {
-            fprintf(stderr, "  ");
+    switch (imm) {
+    case 0:
+        /* imm=0: 输出所有CSR（原有功能） */
+        fprintf(stderr, "=== SigRISCV Debug Info ===\n");
+        
+        /* Print skey */
+        fprintf(stderr, "SKEY: 0x%016lx 0x%016lx\n", 
+                (unsigned long)riscv_env->skey[0], 
+                (unsigned long)riscv_env->skey[1]);
+        
+        /* Print mkey */
+        fprintf(stderr, "MKEY: 0x%016lx 0x%016lx\n", 
+                (unsigned long)riscv_env->mkey[0], 
+                (unsigned long)riscv_env->mkey[1]);
+        
+        /* Print PCID */
+        fprintf(stderr, "PCID: 0x%08x\n", riscv_env->pc_id);
+        
+        /* Print IDCSR with bit fields */
+        fprintf(stderr, "IDCSR: 0x%08x (counter=%u, USE=%u, UPSE=%u)\n", 
+                riscv_env->idcsr,
+                riscv_env->idcsr & IDCSR_COUNTER_MASK,
+                (riscv_env->idcsr & IDCSR_USE) ? 1 : 0,
+                (riscv_env->idcsr & IDCSR_UPSE) ? 1 : 0);
+        
+        /* Print new CSRs */
+        fprintf(stderr, "ENCMAP: 0x%016lx\n", (unsigned long)riscv_env->encmap);
+        fprintf(stderr, "EXITRAW: 0x%016lx\n", (unsigned long)riscv_env->exitraw);
+        fprintf(stderr, "HASHSIG: 0x%016lx\n", (unsigned long)riscv_env->hashsig);
+        
+        /* Print all GPR IDs */
+        fprintf(stderr, "GPR IDs:\n");
+        for (i = 0; i < 32; i++) {
+            fprintf(stderr, "  x%2d: 0x%08x", i, riscv_env->gpr_id[i]);
+            if (i % 4 == 3) {
+                fprintf(stderr, "\n");
+            } else {
+                fprintf(stderr, "  ");
+            }
         }
+        
+        fprintf(stderr, "===========================\n");
+        break;
+
+    case 1:
+        /* imm=1: 以char格式输出rs1寄存器的值 */
+        {
+            target_ulong val = riscv_env->gpr[rs1];
+            uint8_t char_val = (uint8_t)(val & 0xFF);
+            fprintf(stderr, "x%u = '%c' (0x%02x)\n", 
+                    rs1,
+                    (char_val >= 32 && char_val < 127) ? char_val : '.', 
+                    char_val);
+        }
+        break;
+
+    case 2:
+        /* imm=2: 以int格式输出rs1寄存器的值 */
+        {
+            target_ulong val = riscv_env->gpr[rs1];
+            fprintf(stderr, "x%u = %ld (0x%lx)\n", 
+                    rs1,
+                    (long)val, 
+                    (unsigned long)val);
+        }
+        break;
+
+    case 3:
+        /* imm=3: 输出rs1寄存器的值和gprid，将id赋给rd */
+        {
+            target_ulong rs1_val = riscv_env->gpr[rs1];
+            target_ulong rs1_id = helper_sigriscv_get_gpr_id(env, rs1);
+            fprintf(stderr, "x%u = 0x%lx, x%u.id = 0x%x\n", 
+                    rs1, (unsigned long)rs1_val, rs1, (uint32_t)rs1_id);
+            result = rs1_id;
+        }
+        break;
+
+    case 4:
+        /* imm=4: 读取[rs1]作为CSR地址，输出CSR值并赋给rd */
+        {
+            target_ulong csr_addr = riscv_env->gpr[rs1];
+            target_ulong csr_val = 0;
+            
+            /* 根据CSR地址读取对应的CSR值 */
+            if (csr_addr >= 0x5d0 && csr_addr <= 0x5ef) {
+                /* GPRID: 0x5d0-0x5ef */
+                uint32_t reg_idx = csr_addr - 0x5d0;
+                if (reg_idx < SIGCSR_GPRID_NUM) {
+                    csr_val = riscv_env->gpr_id[reg_idx];
+                }
+                fprintf(stderr, "CSR[0x%lx] (GPRID[%u]) = 0x%lx\n", 
+                        (unsigned long)csr_addr, reg_idx, (unsigned long)csr_val);
+            } else if (csr_addr == 0x5f2) {
+                /* PCID: 0x5f2 */
+                csr_val = riscv_env->pc_id;
+                fprintf(stderr, "CSR[0x%lx] (PCID) = 0x%lx\n", 
+                        (unsigned long)csr_addr, (unsigned long)csr_val);
+            } else if (csr_addr == 0x5f3) {
+                /* IDCSR: 0x5f3 */
+                csr_val = riscv_env->idcsr;
+                fprintf(stderr, "CSR[0x%lx] (IDCSR) = 0x%lx\n", 
+                        (unsigned long)csr_addr, (unsigned long)csr_val);
+            } else if (csr_addr == 0x5f4) {
+                /* ENCMAP: 0x5f4 */
+                csr_val = riscv_env->encmap;
+                fprintf(stderr, "CSR[0x%lx] (ENCMAP) = 0x%lx\n", 
+                        (unsigned long)csr_addr, (unsigned long)csr_val);
+            } else if (csr_addr == 0x5f5) {
+                /* EXITRAW: 0x5f5 */
+                csr_val = riscv_env->exitraw;
+                fprintf(stderr, "CSR[0x%lx] (EXITRAW) = 0x%lx\n", 
+                        (unsigned long)csr_addr, (unsigned long)csr_val);
+            } else if (csr_addr == 0x5f6) {
+                /* HASHSIG: 0x5f6 */
+                csr_val = riscv_env->hashsig;
+                fprintf(stderr, "CSR[0x%lx] (HASHSIG) = 0x%lx\n", 
+                        (unsigned long)csr_addr, (unsigned long)csr_val);
+            } else {
+                fprintf(stderr, "Unknown SigCSR address: 0x%lx\n", (unsigned long)csr_addr);
+            }
+            
+            result = csr_val;
+        }
+        break;
+
+    default:
+        fprintf(stderr, "Unknown debug mode: imm=%ld\n", (long)imm);
+        break;
     }
     
-    fprintf(stderr, "===========================\n");
+    return result;
 }
 
 target_ulong helper_sigriscv_check_use_enabled(CPUArchState *env)

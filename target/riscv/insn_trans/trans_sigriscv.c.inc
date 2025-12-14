@@ -852,7 +852,20 @@ static bool trans_switchs(DisasContext *ctx, arg_switchs *a)
 static bool trans_debug(DisasContext *ctx, arg_debug *a)
 {
     decode_save_opc(ctx, 0);
-    gen_helper_sigriscv_debug(tcg_env);
+    
+    TCGv imm_val = tcg_constant_tl(a->imm);
+    TCGv result = tcg_temp_new();
+    
+    gen_helper_sigriscv_debug(result, tcg_env, imm_val, 
+                              tcg_constant_i32(a->rs1), 
+                              tcg_constant_i32(a->rd),
+                              tcg_constant_ptr(0));
+    
+    /* 如果rd != 0，将结果写入rd */
+    if (a->rd != 0) {
+        gen_set_gpr(ctx, a->rd, result);
+    }
+    
     return true;
 }
 
