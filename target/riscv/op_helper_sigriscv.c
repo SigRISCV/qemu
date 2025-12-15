@@ -135,10 +135,11 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
         {
             target_ulong val = riscv_env->gpr[rs1];
             uint8_t char_val = (uint8_t)(val & 0xFF);
-            fprintf(stderr, "x%u = '%c' (0x%02x)\n", 
-                    rs1,
-                    (char_val >= 32 && char_val < 127) ? char_val : '.', 
-                    char_val);
+            if (char_val == '\n' || char_val == '\r' || char_val == '\t' || (char_val >= 32 && char_val < 127)) {
+                fprintf(stderr, "%c", char_val);
+            } else {
+                fprintf(stderr, ".");
+            }
         }
         break;
 
@@ -146,10 +147,7 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
         /* imm=2: 以int格式输出rs1寄存器的值 */
         {
             target_ulong val = riscv_env->gpr[rs1];
-            fprintf(stderr, "x%u = %ld (0x%lx)\n", 
-                    rs1,
-                    (long)val, 
-                    (unsigned long)val);
+            fprintf(stderr, "%ld", val);
         }
         break;
 
@@ -158,8 +156,7 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
         {
             target_ulong rs1_val = riscv_env->gpr[rs1];
             target_ulong rs1_id = helper_sigriscv_get_gpr_id(env, rs1);
-            fprintf(stderr, "x%u = 0x%lx, x%u.id = 0x%x\n", 
-                    rs1, (unsigned long)rs1_val, rs1, (uint32_t)rs1_id);
+            fprintf(stderr, "0x%lx(id:%x)", (unsigned long)rs1_val,(uint32_t)rs1_id);
             result = rs1_id;
         }
         break;
