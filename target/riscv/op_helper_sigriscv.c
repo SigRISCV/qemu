@@ -83,8 +83,14 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
                                     uint32_t rs1, uint32_t rd, void *retaddr)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    int i;
+    int i, j, k;
     target_ulong result = 0;
+    const char* gpr_alias[32] = {
+        "x0",   "ra",  "sp",  "gp",  "tp",  "t0",  "t1",  "t2",
+        "s0",   "s1",  "a0",  "a1",  "a2",  "a3",  "a4",  "a5",
+        "a6",   "a7",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",
+        "s8",   "s9",  "s10", "s11", "t3",  "t4",  "t5",  "t6"
+    };
 
     switch (imm) {
     case 0:
@@ -117,14 +123,27 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
         fprintf(stderr, "HASHSIG: 0x%016lx\n", (unsigned long)riscv_env->hashsig);
         
         /* Print all GPR IDs */
-        fprintf(stderr, "GPR IDs:\n");
-        for (i = 0; i < 32; i++) {
-            fprintf(stderr, "  x%2d: 0x%08x", i, riscv_env->gpr_id[i]);
-            if (i % 4 == 3) {
-                fprintf(stderr, "\n");
-            } else {
-                fprintf(stderr, "  ");
+        fprintf(stderr, "GPR Val+IDs:\n");
+        for (i = 0; i < 32; i+=4) {
+            fprintf(stderr, "val:");
+            for (j = 0; j < 4; j++ ) {
+                k = i + j;
+                fprintf(stderr, "  %s: 0x%016lx", gpr_alias[k], k ? env->gpr[k] : 0L);
+                if (i % 4 == 3) {
+                    fprintf(stderr, " ");
+                }
             }
+            fprintf(stderr, "\n");
+
+            fprintf(stderr, "IDs:");
+            for (j = 0; j < 4; j++ ) {
+                k = i + j;
+                fprintf(stderr, "  %s: 0x%016x", gpr_alias[k], riscv_env->gpr_id[k]);
+                if (i % 4 == 3) {
+                    fprintf(stderr, " ");
+                }
+            }
+            fprintf(stderr, "\n");
         }
         
         fprintf(stderr, "===========================\n");
