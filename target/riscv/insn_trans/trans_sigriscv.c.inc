@@ -225,7 +225,7 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     return true;
 }
 
-static bool trans_setrawid(DisasContext *ctx, arg_setrawid *a)
+static bool trans_setdummyid(DisasContext *ctx, arg_setdummyid *a)
 {
     decode_save_opc(ctx, 0);
 
@@ -234,13 +234,13 @@ static bool trans_setrawid(DisasContext *ctx, arg_setrawid *a)
         TCGv use_bit = tcg_temp_new();
         gen_helper_sigriscv_check_use_enabled(use_bit, tcg_env);
         
-        TCGLabel *do_setrawid = gen_new_label();
+        TCGLabel *do_setdummyid = gen_new_label();
         TCGLabel *done = gen_new_label();
         
         /* if (use_bit == 0) goto done (nop) */
         tcg_gen_brcondi_tl(TCG_COND_EQ, use_bit, 0, done);
         
-        gen_set_label(do_setrawid);
+        gen_set_label(do_setdummyid);
         /* Fall through to normal execution */
         
         TCGv src = get_gpr(ctx, a->rs1, EXT_NONE);
@@ -250,7 +250,9 @@ static bool trans_setrawid(DisasContext *ctx, arg_setrawid *a)
         if (a->rd != 0) {
             gen_set_gpr(ctx, a->rd, result);
             /* Set rd.id = 0 */
-            gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), ctx->zero);
+            TCGv one_num = tcg_constant_tl(1);
+            gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd),\
+                one_num);
         }
         
         gen_set_label(done);
@@ -650,6 +652,14 @@ static bool trans_ss_id(DisasContext *ctx, arg_ss_id *a)
                 memop |= MO_ATOM_WITHIN16;
             }
             tcg_gen_qemu_st_tl(val, addr, ctx->mem_idx, memop);
+
+            /* encmap &= ~(1<<rs2) */
+            TCGv encmap2 = tcg_temp_new();
+            tcg_gen_ld_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
+            TCGv bit_mask2 = tcg_temp_new();
+            tcg_gen_movi_tl(bit_mask2, ~(1ULL << a->rs2));
+            tcg_gen_and_tl(encmap2, encmap2, bit_mask2);
+            tcg_gen_st_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
             
             gen_set_label(label_done);
         }
@@ -733,6 +743,14 @@ static bool trans_ss_id(DisasContext *ctx, arg_ss_id *a)
             memop |= MO_ATOM_WITHIN16;
         }
         tcg_gen_qemu_st_tl(val_sd, addr, ctx->mem_idx, memop);
+
+        /* encmap &= ~(1<<rs2) */
+        TCGv encmap2 = tcg_temp_new();
+        tcg_gen_ld_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
+        TCGv bit_mask2 = tcg_temp_new();
+        tcg_gen_movi_tl(bit_mask2, ~(1ULL << a->rs2));
+        tcg_gen_and_tl(encmap2, encmap2, bit_mask2);
+        tcg_gen_st_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
         
         gen_set_label(label_done);
     }
