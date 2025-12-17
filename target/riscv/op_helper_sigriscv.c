@@ -85,6 +85,7 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     int i, j, k;
     target_ulong result = 0;
+    unsigned long encmap_val;
     const char* gpr_alias[32] = {
         "x0",   "ra",  "sp",  "gp",  "tp",  "t0",  "t1",  "t2",
         "s0",   "s1",  "a0",  "a1",  "a2",  "a3",  "a4",  "a5",
@@ -118,7 +119,14 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
                 (riscv_env->idcsr & IDCSR_UPSE) ? 1 : 0);
         
         /* Print new CSRs */
-        fprintf(stderr, "ENCMAP: 0x%016lx\n", (unsigned long)riscv_env->encmap);
+        encmap_val = riscv_env->encmap;
+        fprintf(stderr, "ENCMAP: 0x%016lx\n", encmap_val);
+        for (i = 0; i < 32; i ++) {
+            if(encmap_val & (1UL << i)) {
+                fprintf(stderr, "%s ", gpr_alias[i]);
+            }
+        }
+        fprintf(stderr, "\n");
         fprintf(stderr, "EXITRAW: 0x%016lx\n", (unsigned long)riscv_env->exitraw);
         fprintf(stderr, "HASHSIG: 0x%016lx\n", (unsigned long)riscv_env->hashsig);
         
@@ -210,6 +218,12 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
                 csr_val = riscv_env->encmap;
                 fprintf(stderr, "CSR[0x%lx] (ENCMAP) = 0x%lx\n", 
                         (unsigned long)csr_addr, (unsigned long)csr_val);
+                for (i = 0; i < 32; i ++) {
+                    if(csr_val & (1UL << i)) {
+                        fprintf(stderr, "%s ", gpr_alias[i]);
+                    }
+                }
+        fprintf(stderr, "\n");
             } else if (csr_addr == 0x5f5) {
                 /* EXITRAW: 0x5f5 */
                 csr_val = riscv_env->exitraw;
