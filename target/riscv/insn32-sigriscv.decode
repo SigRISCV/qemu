@@ -1,19 +1,21 @@
 # opcode: 0b1011011 (0x5b) OPC_CUSTOM_1
+#   setrawid:   funct3=110 (I-type)
 #   setdummyid: funct3=010 (I-type)
 #   setnewid:   funct3=011 (I-type)
 #   switchs:    funct3=100 (R-type)
 #   debug:      funct3=111 (I-type)
 # opcode: 0b0100011 (0x23) OPC_STORE
-#   ss:       funct3=101 (S-type)
-#   ss.id:    funct3=110 (S-type)
+#   ss:         funct3=101 (S-type)
+#   ss.id:      funct3=110 (S-type)
 # opcode: 0b0001111 (0xf)  OPC_MISC_MEM
-#   ls:       funct3=011 (I-type)
-#   ls.map:   funct3=100 (I-type)
+#   ls:         funct3=011 (I-type)
+#   ls.map:     funct3=100 (I-type)
 
 ls          ............     ..... 011 ..... 0001111 @i
 ls_map      ............     ..... 100 ..... 0001111 @i
 ss          .......  .....   ..... 101 ..... 0100011 @s
 ss_id       .......  .....   ..... 110 ..... 0100011 @s
+setrawid    ............     ..... 110 ..... 1011011 @i
 setdummyid  ............     ..... 010 ..... 1011011 @i
 setnewid    ............     ..... 011 ..... 1011011 @i
 switchs     0000000  .....   ..... 100 ..... 1011011 @r

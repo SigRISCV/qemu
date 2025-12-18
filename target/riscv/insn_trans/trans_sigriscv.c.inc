@@ -225,7 +225,7 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     return true;
 }
 
-static bool trans_setdummyid(DisasContext *ctx, arg_setdummyid *a)
+static bool trans_setrawid(DisasContext *ctx, arg_setrawid *a)
 {
     decode_save_opc(ctx, 0);
 
@@ -250,6 +250,53 @@ static bool trans_setdummyid(DisasContext *ctx, arg_setdummyid *a)
         if (a->rd != 0) {
             gen_set_gpr(ctx, a->rd, result);
             /* Set rd.id = 0 */
+            gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd),\
+                ctx->zero);
+        }
+        
+        gen_set_label(done);
+        return true;
+    }
+
+    /* S/M mode: always execute */
+    TCGv src = get_gpr(ctx, a->rs1, EXT_NONE);
+    TCGv result = tcg_temp_new();
+    tcg_gen_addi_tl(result, src, a->imm);
+
+    if (a->rd != 0) {
+        gen_set_gpr(ctx, a->rd, result);
+        /* Set rd.id = 0 */
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), ctx->zero);
+    }
+
+    return true;
+}
+
+static bool trans_setdummyid(DisasContext *ctx, arg_setdummyid *a)
+{
+    decode_save_opc(ctx, 0);
+
+    /* In U-mode, check use bit; if not set, treat as nop */
+    if (ctx->priv == PRV_U) {
+        TCGv use_bit = tcg_temp_new();
+        gen_helper_sigriscv_check_use_enabled(use_bit, tcg_env);
+        
+        TCGLabel *do_setdummyid = gen_new_label();
+        TCGLabel *done = gen_new_label();
+        
+        /* if (use_bit == 0) goto done (nop) */
+        tcg_gen_brcondi_tl(TCG_COND_EQ, use_bit, 0, done);
+        
+        gen_set_label(do_setdummyid);
+        /* Fall through to normal execution */
+        
+        TCGv src = get_gpr(ctx, a->rs1, EXT_NONE);
+        TCGv result = tcg_temp_new();
+        tcg_gen_addi_tl(result, src, a->imm);
+
+        if (a->rd != 0) {
+            gen_set_gpr(ctx, a->rd, result);
+            /* Set rd.id = 1 */
             TCGv one_num = tcg_constant_tl(1);
             gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd),\
                 one_num);
@@ -266,8 +313,9 @@ static bool trans_setdummyid(DisasContext *ctx, arg_setdummyid *a)
 
     if (a->rd != 0) {
         gen_set_gpr(ctx, a->rd, result);
-        /* Set rd.id = 0 */
-        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), ctx->zero);
+        /* Set rd.id = 1 */
+        TCGv one_num = tcg_constant_tl(1);
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), one_num);
     }
 
     return true;
