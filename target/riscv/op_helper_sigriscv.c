@@ -74,9 +74,13 @@ target_ulong helper_sigriscv_get_idcsr(CPUArchState *env)
 void helper_sigriscv_set_idcsr(CPUArchState *env, target_ulong id)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
+    // Extract counter part [23:0]
+    target_ulong counter = id & IDCSR_COUNTER_MASK;
+    // If counter is 0 or 1 (reserved), set it to 2
+    if (counter == 0 || counter == 1) counter = 2;
+    
     // Only update counter part [23:0], preserve USE/UPSE bits
-    riscv_env->idcsr = (riscv_env->idcsr & (IDCSR_USE | IDCSR_UPSE)) | 
-                       (id & IDCSR_COUNTER_MASK);
+    riscv_env->idcsr = (riscv_env->idcsr & (IDCSR_USE | IDCSR_UPSE)) | counter;
 }
 
 target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm, 
