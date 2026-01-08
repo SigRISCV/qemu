@@ -70,100 +70,44 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     TCGv addr = get_address(ctx, a->rs1, a->imm);
     TCGv src = get_gpr(ctx, a->rs2, EXT_NONE);
 
-    /* In U-mode, check use bit; if not set, degrade to normal sd */
-    if (ctx->priv == PRV_U) {
-        TCGv use_bit = tcg_temp_new();
-        gen_helper_sigriscv_check_use_enabled(use_bit, tcg_env);
-        
-        TCGLabel *do_ss = gen_new_label();
-        TCGLabel *done = gen_new_label();
-        
-        /* if (use_bit != 0) goto do_ss */
-        tcg_gen_brcondi_tl(TCG_COND_NE, use_bit, 0, do_ss);
-        
-        /* Normal sd */
-        MemOp sd_memop = MO_TESQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            sd_memop |= MO_ATOM_WITHIN16;
-        }
-        tcg_gen_qemu_st_tl(src, addr, ctx->mem_idx, sd_memop);
-        tcg_gen_br(done);
-        
-        /* do_ss: execute ss instruction */
-        gen_set_label(do_ss);
-        
-        /* SS logic */
-        MemOp memop = MO_UQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            memop |= MO_ATOM_WITHIN16;
-        }
-        
-        TCGv value_masked = tcg_temp_new();
-        tcg_gen_andi_tl(value_masked, src, SIGCSR_PTR_MASK);
-
-        TCGv id = tcg_temp_new();
-        gen_helper_sigriscv_get_gpr_id(id, tcg_env, tcg_constant_i32(a->rs2));
-
-        TCGv id_shifted = tcg_temp_new();
-        tcg_gen_shli_tl(id_shifted, id, SIGCSR_ID_SHIFT);
-
-        TCGv plaintext = tcg_temp_new();
-        tcg_gen_or_tl(plaintext, id_shifted, value_masked);
-
-        TCGv base_id = tcg_temp_new();
-        gen_helper_sigriscv_get_gpr_id(base_id, tcg_env, tcg_constant_i32(a->rs1));
-
-        TCGv base_id_shifted = tcg_temp_new();
-        tcg_gen_shli_tl(base_id_shifted, base_id, SIGCSR_ID_SHIFT);
-
-        TCGv addr_lower = tcg_temp_new();
-        tcg_gen_andi_tl(addr_lower, addr, SIGCSR_PTR_MASK);
-
-        TCGv tweak = tcg_temp_new();
-        tcg_gen_or_tl(tweak, base_id_shifted, addr_lower);
-
-        TCGv encrypted = tcg_temp_new();
-        gen_helper_sigriscv_encrypt_ptr(encrypted, tcg_env, plaintext, tweak);
-
-        tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
-        
-        gen_set_label(done);
-    } else {
-        /* S/M mode: always execute ss with ID=0 */
-        MemOp memop = MO_UQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            memop |= MO_ATOM_WITHIN16;
-        }
-        
-        TCGv value_masked = tcg_temp_new();
-        tcg_gen_andi_tl(value_masked, src, SIGCSR_PTR_MASK);
-
-        TCGv id = tcg_temp_new();
-        tcg_gen_movi_tl(id, 0);  /* S/M mode uses ID=0 */
-
-        TCGv id_shifted = tcg_temp_new();
-        tcg_gen_shli_tl(id_shifted, id, SIGCSR_ID_SHIFT);
-
-        TCGv plaintext = tcg_temp_new();
-        tcg_gen_or_tl(plaintext, id_shifted, value_masked);
-
-        TCGv base_id = tcg_temp_new();
-        tcg_gen_movi_tl(base_id, 0);  /* S/M mode uses ID=0 */
-
-        TCGv base_id_shifted = tcg_temp_new();
-        tcg_gen_shli_tl(base_id_shifted, base_id, SIGCSR_ID_SHIFT);
-
-        TCGv addr_lower = tcg_temp_new();
-        tcg_gen_andi_tl(addr_lower, addr, SIGCSR_PTR_MASK);
-
-        TCGv tweak = tcg_temp_new();
-        tcg_gen_or_tl(tweak, base_id_shifted, addr_lower);
-
-        TCGv encrypted = tcg_temp_new();
-        gen_helper_sigriscv_encrypt_ptr(encrypted, tcg_env, plaintext, tweak);
-
-        tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
+    MemOp memop = MO_UQ | mo_endian(ctx);
+    if (ctx->cfg_ptr->ext_zama16b) {
+        memop |= MO_ATOM_WITHIN16;
     }
+        
+    TCGv encrypted = tcg_temp_new();
+    TCGv_i32 rs1_idx = tcg_constant_i32(a->rs1);
+    TCGv_i32 rs2_idx = tcg_constant_i32(a->rs2);
+    gen_helper_sigriscv_encrypt_withid(encrypted, tcg_env, src, addr, rs1_idx, rs2_idx);
+
+    tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
+    
+    return true;
+}
+
+static bool trans_ss_id(DisasContext *ctx, arg_ss *a)
+{
+    REQUIRE_64_OR_128BIT(ctx);
+    decode_save_opc(ctx, 0);
+
+    if (ctx->ztso) {
+        tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);
+    }
+
+    TCGv addr = get_address(ctx, a->rs1, a->imm);
+    TCGv src = get_gpr(ctx, a->rs2, EXT_NONE);
+
+    MemOp memop = MO_UQ | mo_endian(ctx);
+    if (ctx->cfg_ptr->ext_zama16b) {
+        memop |= MO_ATOM_WITHIN16;
+    }
+        
+    TCGv encrypted = tcg_temp_new();
+    TCGv_i32 rs1_idx = tcg_constant_i32(a->rs1);
+    TCGv_i32 rs2_idx = tcg_constant_i32(a->rs2);
+    gen_helper_sigriscv_encrypt_withid_encmap(encrypted, tcg_env, src, addr, rs1_idx, rs2_idx);
+
+    tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
     
     return true;
 }
@@ -327,216 +271,6 @@ static bool trans_setnewid(DisasContext *ctx, arg_setnewid *a)
         gen_helper_sigriscv_set_idcsr(tcg_env, new_idcsr);
     }
 
-    return true;
-}
-
-static bool trans_ss_id(DisasContext *ctx, arg_ss_id *a)
-{
-    REQUIRE_64_OR_128BIT(ctx);
-    decode_save_opc(ctx, 0);
-
-    if (ctx->ztso) {
-        tcg_gen_mb(TCG_MO_ALL | TCG_BAR_STRL);
-    }
-
-    TCGv addr = get_address(ctx, a->rs1, a->imm);
-
-    /* In U-mode, check use bit; if not set, degrade to normal sd */
-    if (ctx->priv == PRV_U) {
-        TCGv use_bit = tcg_temp_new();
-        gen_helper_sigriscv_check_use_enabled(use_bit, tcg_env);
-        
-        TCGLabel *do_ss_id = gen_new_label();
-        TCGLabel *done = gen_new_label();
-        
-        /* if (use_bit != 0) goto do_ss_id */
-        tcg_gen_brcondi_tl(TCG_COND_NE, use_bit, 0, do_ss_id);
-        
-        /* Normal sd (regardless of rs2 value) */
-        MemOp sd_memop = MO_TESQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            sd_memop |= MO_ATOM_WITHIN16;
-        }
-        TCGv src = get_gpr(ctx, a->rs2, EXT_NONE);
-        tcg_gen_qemu_st_tl(src, addr, ctx->mem_idx, sd_memop);
-        tcg_gen_br(done);
-        
-        gen_set_label(do_ss_id);
-        /* ss.id logic for U-mode */
-
-        if (a->rs2 == 0) {
-            /* ss.encmap: store encmap to memory */
-            MemOp memop = MO_UQ | mo_endian(ctx);
-            if (ctx->cfg_ptr->ext_zama16b) {
-                memop |= MO_ATOM_WITHIN16;
-            }
-            TCGv encmap = tcg_temp_new();
-            tcg_gen_ld_tl(encmap, tcg_env, offsetof(CPURISCVState, encmap));
-            tcg_gen_qemu_st_tl(encmap, addr, ctx->mem_idx, memop);
-        } else {
-            /* Check if rs2 has ID */
-            TCGv id = tcg_temp_new();
-            gen_helper_sigriscv_get_gpr_id(id, tcg_env, tcg_constant_i32(a->rs2));
-            
-            TCGLabel *label_sd = gen_new_label();
-            TCGLabel *label_done = gen_new_label();
-            
-            /* if (id[rs2] == 0), jump to normal sd */
-            tcg_gen_brcondi_tl(TCG_COND_EQ, id, 0, label_sd);
-            
-            /* Execute ss rs2, imm(rs1) */
-            TCGv src_sm = get_gpr(ctx, a->rs2, EXT_NONE);
-            TCGv value_masked = tcg_temp_new();
-            tcg_gen_andi_tl(value_masked, src_sm, SIGCSR_PTR_MASK);
-            
-            TCGv id_shifted = tcg_temp_new();
-            tcg_gen_shli_tl(id_shifted, id, SIGCSR_ID_SHIFT);
-            
-            TCGv plaintext = tcg_temp_new();
-            tcg_gen_or_tl(plaintext, id_shifted, value_masked);
-            
-            TCGv base_id = tcg_temp_new();
-            gen_helper_sigriscv_get_gpr_id(base_id, tcg_env, tcg_constant_i32(a->rs1));
-            
-            TCGv base_id_shifted = tcg_temp_new();
-            tcg_gen_shli_tl(base_id_shifted, base_id, SIGCSR_ID_SHIFT);
-            
-            TCGv addr_lower = tcg_temp_new();
-            tcg_gen_andi_tl(addr_lower, addr, SIGCSR_PTR_MASK);
-            
-            TCGv tweak = tcg_temp_new();
-            tcg_gen_or_tl(tweak, base_id_shifted, addr_lower);
-            
-            TCGv encrypted = tcg_temp_new();
-            gen_helper_sigriscv_encrypt_ptr(encrypted, tcg_env, plaintext, tweak);
-            
-            MemOp memop = MO_UQ | mo_endian(ctx);
-            if (ctx->cfg_ptr->ext_zama16b) {
-                memop |= MO_ATOM_WITHIN16;
-            }
-            tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
-            
-            /* encmap |= 1<<rs2 */
-            TCGv encmap = tcg_temp_new();
-            tcg_gen_ld_tl(encmap, tcg_env, offsetof(CPURISCVState, encmap));
-            TCGv bit_mask = tcg_temp_new();
-            tcg_gen_movi_tl(bit_mask, 1ULL << a->rs2);
-            tcg_gen_or_tl(encmap, encmap, bit_mask);
-            tcg_gen_st_tl(encmap, tcg_env, offsetof(CPURISCVState, encmap));
-            
-            tcg_gen_br(label_done);
-            
-            /* Normal sd */
-            gen_set_label(label_sd);
-            TCGv val = get_gpr(ctx, a->rs2, EXT_NONE);
-            memop = MO_TESQ | mo_endian(ctx);
-            if (ctx->cfg_ptr->ext_zama16b) {
-                memop |= MO_ATOM_WITHIN16;
-            }
-            tcg_gen_qemu_st_tl(val, addr, ctx->mem_idx, memop);
-
-            /* encmap &= ~(1<<rs2) */
-            TCGv encmap2 = tcg_temp_new();
-            tcg_gen_ld_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
-            TCGv bit_mask2 = tcg_temp_new();
-            tcg_gen_movi_tl(bit_mask2, ~(1ULL << a->rs2));
-            tcg_gen_and_tl(encmap2, encmap2, bit_mask2);
-            tcg_gen_st_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
-            
-            gen_set_label(label_done);
-        }
-        
-        gen_set_label(done);
-        return true;
-    }
-    
-    /* S/M mode: always execute ss.id with ID=0 */
-    if (a->rs2 == 0) {
-        /* ss.encmap: store encmap to memory */
-        MemOp memop = MO_UQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            memop |= MO_ATOM_WITHIN16;
-        }
-        TCGv encmap = tcg_temp_new();
-        tcg_gen_ld_tl(encmap, tcg_env, offsetof(CPURISCVState, encmap));
-        tcg_gen_qemu_st_tl(encmap, addr, ctx->mem_idx, memop);
-    } else {
-        /* Check if rs2 has ID (but will use 0 for encryption in S/M mode) */
-        TCGv id = tcg_temp_new();
-        tcg_gen_movi_tl(id, 0);  /* S/M mode always uses ID=0 */
-        
-        TCGLabel *label_sd = gen_new_label();
-        TCGLabel *label_done = gen_new_label();
-        
-        /* Get actual rs2.id to check if we should encrypt */
-        TCGv actual_id = tcg_temp_new();
-        gen_helper_sigriscv_get_gpr_id(actual_id, tcg_env, tcg_constant_i32(a->rs2));
-        
-        /* if (actual_id == 0), jump to normal sd */
-        tcg_gen_brcondi_tl(TCG_COND_EQ, actual_id, 0, label_sd);
-        
-        /* Execute ss rs2, imm(rs1) with ID=0 */
-        TCGv src = get_gpr(ctx, a->rs2, EXT_NONE);
-        TCGv value_masked = tcg_temp_new();
-        tcg_gen_andi_tl(value_masked, src, SIGCSR_PTR_MASK);
-        
-        TCGv id_shifted = tcg_temp_new();
-        tcg_gen_shli_tl(id_shifted, actual_id, SIGCSR_ID_SHIFT);
-        
-        TCGv plaintext = tcg_temp_new();
-        tcg_gen_or_tl(plaintext, id_shifted, value_masked);
-        
-        TCGv base_id = tcg_temp_new();
-        tcg_gen_movi_tl(base_id, 0);  /* S/M mode uses ID=0 for tweak */
-        
-        TCGv base_id_shifted = tcg_temp_new();
-        tcg_gen_shli_tl(base_id_shifted, base_id, SIGCSR_ID_SHIFT);
-        
-        TCGv addr_lower = tcg_temp_new();
-        tcg_gen_andi_tl(addr_lower, addr, SIGCSR_PTR_MASK);
-        
-        TCGv tweak = tcg_temp_new();
-        tcg_gen_or_tl(tweak, base_id_shifted, addr_lower);
-        
-        TCGv encrypted = tcg_temp_new();
-        gen_helper_sigriscv_encrypt_ptr(encrypted, tcg_env, plaintext, tweak);
-        
-        MemOp memop = MO_UQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            memop |= MO_ATOM_WITHIN16;
-        }
-        tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
-        
-        /* encmap |= 1<<rs2 */
-        TCGv encmap = tcg_temp_new();
-        tcg_gen_ld_tl(encmap, tcg_env, offsetof(CPURISCVState, encmap));
-        TCGv bit_mask = tcg_temp_new();
-        tcg_gen_movi_tl(bit_mask, 1ULL << a->rs2);
-        tcg_gen_or_tl(encmap, encmap, bit_mask);
-        tcg_gen_st_tl(encmap, tcg_env, offsetof(CPURISCVState, encmap));
-        
-        tcg_gen_br(label_done);
-        
-        /* Normal sd */
-        gen_set_label(label_sd);
-        TCGv val_sd = get_gpr(ctx, a->rs2, EXT_NONE);
-        memop = MO_TESQ | mo_endian(ctx);
-        if (ctx->cfg_ptr->ext_zama16b) {
-            memop |= MO_ATOM_WITHIN16;
-        }
-        tcg_gen_qemu_st_tl(val_sd, addr, ctx->mem_idx, memop);
-
-        /* encmap &= ~(1<<rs2) */
-        TCGv encmap2 = tcg_temp_new();
-        tcg_gen_ld_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
-        TCGv bit_mask2 = tcg_temp_new();
-        tcg_gen_movi_tl(bit_mask2, ~(1ULL << a->rs2));
-        tcg_gen_and_tl(encmap2, encmap2, bit_mask2);
-        tcg_gen_st_tl(encmap2, tcg_env, offsetof(CPURISCVState, encmap));
-        
-        gen_set_label(label_done);
-    }
-    
     return true;
 }
 
