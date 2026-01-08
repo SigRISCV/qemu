@@ -18,6 +18,83 @@ static void get_sigriscv_key(CPURISCVState *env, target_ulong *kl, target_ulong 
     }
 }
 
+static bool is_sigriscv_use_enabled(CPUArchState *env)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    return env->priv != PRV_U || (riscv_env->idcsr & IDCSR_USE) != 0;
+}
+
+static target_ulong sigriscv_decrypt(CPUArchState *env,
+                                         target_ulong secret,
+                                         target_ulong addr,
+                                         uint32_t rs1_idx)
+{
+    // printf("decrypt: secret = %lx, addr = %lx, rs1_idx = %u, rd_idx = %u\n", secret, addr, rs1_idx, rd_idx);
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    target_ulong keyl, keyh;
+    get_sigriscv_key(riscv_env, &keyl, &keyh);
+
+    target_ulong base_id = env->priv == PRV_U ? riscv_env->gpr_id[rs1_idx] & SIGCSR_ID_MASK : 0;
+    target_ulong addr_lower = addr & SIGCSR_PTR_MASK;
+    target_ulong base_id_shifted = base_id << SIGCSR_ID_SHIFT;
+    target_ulong new_tweak = base_id_shifted | addr_lower;
+    // printf("decrypt: base_id = %lx, addr_lower = %lx, new_tweak = %lx\n", base_id, addr_lower, new_tweak);
+    
+    target_ulong plaintext = qarma64_dec(secret, new_tweak, keyl, keyh, 7);
+    return plaintext;
+}
+
+static target_ulong sigriscv_decrypt_setid_nocond(CPUArchState *env,
+                                         target_ulong secret,
+                                         target_ulong addr,
+                                         uint32_t rs1_idx,
+                                         uint32_t rd_idx)
+{
+    // printf("decrypt: secret = %lx, addr = %lx, rs1_idx = %u, rd_idx = %u\n", secret, addr, rs1_idx, rd_idx);
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    target_ulong pointer_with_id = sigriscv_decrypt(env, secret, addr, rs1_idx);
+    target_ulong new_id = (pointer_with_id >> SIGCSR_ID_SHIFT) & SIGCSR_ID_MASK;
+    riscv_env->gpr_id[rd_idx] = new_id;
+    target_ulong pointer = (target_ulong)(((target_long)(pointer_with_id << SIGCSR_ID_BITS)) >> SIGCSR_ID_BITS);
+    // printf("decrypt: pointer_with_id = %lx, new_id = %lx, pointer = %lx\n", pointer_with_id, new_id, pointer);
+    return pointer;
+}
+
+target_ulong HELPER(sigriscv_decrypt_setid)(CPUArchState *env,
+                                         target_ulong secret,
+                                         target_ulong addr,
+                                         uint32_t rs1_idx,
+                                         uint32_t rd_idx)
+{
+    if (!is_sigriscv_use_enabled(env)) {
+        return secret;
+    }
+    return sigriscv_decrypt_setid_nocond(env, secret, addr, rs1_idx, rd_idx);
+}
+
+target_ulong HELPER(sigriscv_decrypt_setid_encmap)(CPUArchState *env,
+                                         target_ulong secret,
+                                         target_ulong addr,
+                                         uint32_t rs1_idx,
+                                         uint32_t rd_idx)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    if (!is_sigriscv_use_enabled(env)) {
+        return secret;
+    }
+    if (rd_idx == 0) {
+        // target_ulong plain = sigriscv_decrypt(env, secret, addr, rs1_idx);
+        // riscv_env->encmap = plain;
+        riscv_env->encmap = secret;
+        return 0;
+    }
+    if (!(riscv_env->encmap & (1ULL << rd_idx))) {
+        riscv_env->gpr_id[rd_idx] = 0;
+        return secret;
+    }
+    return sigriscv_decrypt_setid_nocond(env, secret, addr, rs1_idx, rd_idx);
+}
+
 target_ulong helper_sigriscv_encrypt_ptr(CPUArchState *env,
                                          target_ulong plaintext,
                                          target_ulong tweak)
@@ -25,17 +102,9 @@ target_ulong helper_sigriscv_encrypt_ptr(CPUArchState *env,
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     target_ulong keyl, keyh;
     get_sigriscv_key(riscv_env, &keyl, &keyh);
-    return qarma64_enc(plaintext, tweak, keyl, keyh, 7);
-}
-
-target_ulong helper_sigriscv_decrypt_ptr(CPUArchState *env,
-                                         target_ulong secret,
-                                         target_ulong tweak)
-{
-    CPURISCVState *riscv_env = (CPURISCVState *)env;
-    target_ulong keyl, keyh;
-    get_sigriscv_key(riscv_env, &keyl, &keyh);
-    return qarma64_dec(secret, tweak, keyl, keyh, 7);
+    target_ulong result = qarma64_enc(plaintext, tweak, keyl, keyh, 7);
+    // printf("encrypt: plaintext = %lx, tweak = %lx, result = %lx\n", plaintext, tweak, result);
+    return result;
 }
 
 target_ulong helper_sigriscv_get_gpr_id(CPUArchState *env, uint32_t reg)

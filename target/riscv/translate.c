@@ -429,6 +429,27 @@ static void gen_set_gpr(DisasContext *ctx, int reg_num, TCGv t)
     }
 }
 
+static void gen_set_gpr_restore_id(DisasContext *ctx, int reg_num, TCGv t)
+{
+    if (reg_num != 0) {
+        switch (get_ol(ctx)) {
+        case MXL_RV32:
+            tcg_gen_ext32s_tl(cpu_gpr[reg_num], t);
+            break;
+        case MXL_RV64:
+        case MXL_RV128:
+            tcg_gen_mov_tl(cpu_gpr[reg_num], t);
+            break;
+        default:
+            g_assert_not_reached();
+        }
+
+        if (get_xl_max(ctx) == MXL_RV128) {
+            tcg_gen_sari_tl(cpu_gprh[reg_num], cpu_gpr[reg_num], 63);
+        }
+    }
+}
+
 static void gen_set_gpri(DisasContext *ctx, int reg_num, target_long imm)
 {
     if (reg_num != 0) {

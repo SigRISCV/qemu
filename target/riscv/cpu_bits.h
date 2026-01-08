@@ -629,7 +629,8 @@
 #define CSR_HASHSIG         0x5f6
 
 #define SIGCSR_GPRID_NUM    32
-#define SIGCSR_ID_MASK      0x00ffffffu
+#define SIGCSR_ID_BITS      24
+#define SIGCSR_ID_MASK      ((1ULL << SIGCSR_ID_BITS) - 1)
 #define SIGCSR_ID_SHIFT     40
 #define SIGCSR_PTR_BITS     40
 #define SIGCSR_PTR_MASK     ((1ULL << SIGCSR_PTR_BITS) - 1)
