@@ -163,46 +163,14 @@ static bool trans_setnewid(DisasContext *ctx, arg_setnewid *a)
 static bool trans_switchs(DisasContext *ctx, arg_switchs *a)
 {
     decode_save_opc(ctx, 0);
-
-    /* In U-mode: unconditionally end TB to handle conditional PC modification
-     * If USE=0, switchs becomes NOP but we still end the TB for simplicity */
-    if (ctx->priv == PRV_U) {
-        TCGv use_bit = tcg_temp_new();
-        gen_helper_sigriscv_check_use_enabled(use_bit, tcg_env);
-        
-        TCGLabel *done = gen_new_label();
-        
-        /* if (use_bit == 0) goto done (nop) */
-        tcg_gen_brcondi_tl(TCG_COND_EQ, use_bit, 0, done);
-        
-        if (a->rs2 == 0) {
-            TCGv next_pc = tcg_temp_new();
-            gen_pc_plus_diff(next_pc, ctx, ctx->cur_insn_len);
-            tcg_gen_st_tl(next_pc, tcg_env, offsetof(CPURISCVState, exitraw));
-        } else {
-            TCGv rs2_val = get_gpr(ctx, a->rs2, EXT_NONE);
-            tcg_gen_st_tl(rs2_val, tcg_env, offsetof(CPURISCVState, exitraw));
-        }
-        
-        
-        TCGv hash = tcg_temp_new();
-        gen_helper_sigriscv_hash_callee_regs(hash, tcg_env);
-        tcg_gen_st_tl(hash, tcg_env, offsetof(CPURISCVState, hashsig));
-        
-        static const int caller_saved_regs[] = {
-            1, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31
-        };
-        for (int i = 0; i < sizeof(caller_saved_regs) / sizeof(caller_saved_regs[0]); i++) {
-            gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(caller_saved_regs[i]), ctx->zero);
-        }
-        
-        TCGv idcsr = tcg_temp_new();
-        tcg_gen_ld_tl(idcsr, tcg_env, offsetof(CPURISCVState, idcsr));
-        tcg_gen_ori_tl(idcsr, idcsr, IDCSR_UPSE);
-        tcg_gen_andi_tl(idcsr, idcsr, ~IDCSR_USE);
-        tcg_gen_st_tl(idcsr, tcg_env, offsetof(CPURISCVState, idcsr));
-        
-        gen_set_label(done);
+  
+    if (a->rs2 == 0) {
+        TCGv next_pc = tcg_temp_new();
+        gen_pc_plus_diff(next_pc, ctx, ctx->cur_insn_len);
+        gen_helper_sigriscv_switch_sigmode(tcg_env, next_pc);
+    } else {
+        TCGv next_pc = get_gpr(ctx, a->rs2, EXT_NONE);
+        gen_helper_sigriscv_switch_sigmode(tcg_env, next_pc);
     }
 
     arg_jalr jalr_arg;
