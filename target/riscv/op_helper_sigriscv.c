@@ -18,7 +18,7 @@ static void get_sigriscv_key(CPURISCVState *env, target_ulong *kl, target_ulong 
     }
 }
 
-static bool is_sigriscv_use_enabled(CPUArchState *env)
+static inline bool is_sigriscv_use_enabled(CPUArchState *env)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     return env->priv != PRV_U || (riscv_env->idcsr & IDCSR_USE) != 0;
@@ -186,30 +186,30 @@ void helper_sigriscv_set_gpr_id(CPUArchState *env, uint32_t reg, target_ulong id
         return;
     }
     // Check USE bit in U-mode (bit 30 of idcsr)
-    if (riscv_env->priv == PRV_U && !(riscv_env->idcsr & IDCSR_USE)) {
+    if (!is_sigriscv_use_enabled(env)) {
         return;
     }
 
     riscv_env->gpr_id[reg] = id & SIGCSR_ID_MASK;
 }
 
-target_ulong helper_sigriscv_get_idcsr(CPUArchState *env)
+void helper_sigriscv_set_gpr_newid(CPUArchState *env, uint32_t reg)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    // Return only the counter part [23:0]
-    return riscv_env->idcsr & IDCSR_COUNTER_MASK;
-}
-
-void helper_sigriscv_set_idcsr(CPUArchState *env, target_ulong id)
-{
-    CPURISCVState *riscv_env = (CPURISCVState *)env;
-    // Extract counter part [23:0]
-    target_ulong counter = id & IDCSR_COUNTER_MASK;
-    // If counter is 0 or 1 (reserved), set it to 2
-    if (counter == 0 || counter == 1) counter = 2;
     
-    // Only update counter part [23:0], preserve USE/UPSE bits
-    riscv_env->idcsr = (riscv_env->idcsr & (IDCSR_USE | IDCSR_UPSE)) | counter;
+    if (reg == 0 || reg >= SIGCSR_GPRID_NUM) {
+        return;
+    }
+    // Check USE bit in U-mode (bit 30 of idcsr)
+    if (!is_sigriscv_use_enabled(env)) {
+        return;
+    }
+
+    target_ulong id = riscv_env->idcsr & IDCSR_COUNTER_MASK;
+    riscv_env->gpr_id[reg] = id;
+    id = (id + 1) & IDCSR_COUNTER_MASK;
+    if (id == 0 || id == 1) id = 2; // Skip reserved values 0 and 1
+    riscv_env->idcsr = (riscv_env->idcsr & (~IDCSR_COUNTER_MASK)) | id;
 }
 
 target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm, 
