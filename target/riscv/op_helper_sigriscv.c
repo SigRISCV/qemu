@@ -7,6 +7,23 @@
 #include "target/riscv/cpu_bits.h"
 #include "qarma.h"
 
+static inline void sigriscv_setgprid_checkpriv(CPUArchState *env, uint32_t gpr_idx, target_ulong id)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    if (env->priv == PRV_U && gpr_idx != 0) {
+        riscv_env->gpr_id[gpr_idx] = id;
+    }
+}
+
+static inline target_ulong sigriscv_getgprid_checkpriv(CPUArchState *env, uint32_t gpr_idx)
+{
+    CPURISCVState *riscv_env = (CPURISCVState *)env;
+    if (env->priv == PRV_U) {
+        return riscv_env->gpr_id[gpr_idx] & SIGCSR_ID_MASK;
+    }
+    return 0;
+}
+
 static void get_sigriscv_key(CPURISCVState *env, target_ulong *kl, target_ulong *kh)
 {
     if (env->priv == PRV_U) {
@@ -34,7 +51,7 @@ static target_ulong sigriscv_decrypt(CPUArchState *env,
     target_ulong keyl, keyh;
     get_sigriscv_key(riscv_env, &keyl, &keyh);
 
-    target_ulong base_id = env->priv == PRV_U ? riscv_env->gpr_id[rs1_idx] & SIGCSR_ID_MASK : 0;
+    target_ulong base_id = sigriscv_getgprid_checkpriv(env, rs1_idx);
     target_ulong addr_lower = addr & SIGCSR_PTR_MASK;
     target_ulong base_id_shifted = base_id << SIGCSR_ID_SHIFT;
     target_ulong new_tweak = base_id_shifted | addr_lower;
@@ -54,7 +71,7 @@ static target_ulong sigriscv_decrypt_setid_addr(CPUArchState *env,
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     target_ulong pointer_with_id = sigriscv_decrypt(env, secret, addr, rs1_idx);
     target_ulong new_id = (pointer_with_id >> SIGCSR_ID_SHIFT) & SIGCSR_ID_MASK;
-    riscv_env->gpr_id[rd_idx] = new_id;
+    sigriscv_setgprid_checkpriv(env, rd_idx, new_id);
     target_ulong pointer = (target_ulong)(((target_long)(pointer_with_id << SIGCSR_ID_BITS)) >> SIGCSR_ID_BITS);
     // printf("decrypt: pointer_with_id = %lx, new_id = %lx, pointer = %lx\n", pointer_with_id, new_id, pointer);
     return pointer;
@@ -89,7 +106,7 @@ target_ulong HELPER(sigriscv_decrypt_setid_encmap)(CPUArchState *env,
         return 0;
     }
     if (!(riscv_env->encmap & (1ULL << rd_idx))) {
-        riscv_env->gpr_id[rd_idx] = 0;
+        sigriscv_setgprid_checkpriv(env, rd_idx, 0);
         return secret;
     }
     return sigriscv_decrypt_setid_addr(env, secret, addr, rs1_idx, rd_idx);
@@ -105,7 +122,7 @@ static target_ulong sigriscv_encrypt(CPUArchState *env,
     target_ulong keyl, keyh;
     get_sigriscv_key(riscv_env, &keyl, &keyh);
 
-    target_ulong base_id = env->priv == PRV_U ? riscv_env->gpr_id[rs1_idx] & SIGCSR_ID_MASK : 0;
+    target_ulong base_id = sigriscv_getgprid_checkpriv(env, rs1_idx);
     target_ulong addr_lower = addr & SIGCSR_PTR_MASK;
     target_ulong base_id_shifted = base_id << SIGCSR_ID_SHIFT;
     target_ulong new_tweak = base_id_shifted | addr_lower;
@@ -123,7 +140,7 @@ static target_ulong sigriscv_encrypt_addr(CPUArchState *env,
 {
     // printf("encrypt: secret = %lx, addr = %lx, rs1_idx = %u, rs2_idx = %u\n", secret, addr, rs1_idx, rs2_idx);
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    target_ulong base_id = env->priv == PRV_U ? riscv_env->gpr_id[rs2_idx] & SIGCSR_ID_MASK : 0;
+    target_ulong base_id = sigriscv_getgprid_checkpriv(env, rs2_idx);
     target_ulong plain_lower = plain & SIGCSR_PTR_MASK;
     target_ulong base_id_shifted = base_id << SIGCSR_ID_SHIFT;
     target_ulong new_plain = base_id_shifted | plain_lower;
@@ -171,9 +188,7 @@ target_ulong helper_sigriscv_get_gpr_id(CPUArchState *env, uint32_t reg)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     
-    if (reg >= SIGCSR_GPRID_NUM) {
-        return 0;
-    }
+    assert(reg < SIGCSR_GPRID_NUM);
 
     return riscv_env->gpr_id[reg] & SIGCSR_ID_MASK;
 }
@@ -181,32 +196,26 @@ target_ulong helper_sigriscv_get_gpr_id(CPUArchState *env, uint32_t reg)
 void helper_sigriscv_set_gpr_id(CPUArchState *env, uint32_t reg, target_ulong id)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    
-    if (reg == 0 || reg >= SIGCSR_GPRID_NUM) {
-        return;
-    }
+
     // Check USE bit in U-mode (bit 30 of idcsr)
     if (!is_sigriscv_use_enabled(env)) {
         return;
     }
 
-    riscv_env->gpr_id[reg] = id & SIGCSR_ID_MASK;
+    sigriscv_setgprid_checkpriv(env, reg, id);
 }
 
 void helper_sigriscv_set_gpr_newid(CPUArchState *env, uint32_t reg)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
-    
-    if (reg == 0 || reg >= SIGCSR_GPRID_NUM) {
-        return;
-    }
+
     // Check USE bit in U-mode (bit 30 of idcsr)
     if (!is_sigriscv_use_enabled(env)) {
         return;
     }
 
     target_ulong id = riscv_env->idcsr & IDCSR_COUNTER_MASK;
-    riscv_env->gpr_id[reg] = id;
+    sigriscv_setgprid_checkpriv(env, reg, id);
     id = (id + 1) & IDCSR_COUNTER_MASK;
     if (id == 0 || id == 1) id = 2; // Skip reserved values 0 and 1
     riscv_env->idcsr = (riscv_env->idcsr & (~IDCSR_COUNTER_MASK)) | id;
@@ -251,11 +260,13 @@ void HELPER(sigriscv_switch_sigmode)(CPUArchState *env, target_ulong next_pc)
     riscv_env->idcsr |= IDCSR_UPSE;
     riscv_env->exitraw = next_pc;
     riscv_env->hashsig = sigriscv_hash_callee_regs(env);
-    static const int caller_saved_regs[] = {
-        1, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31
-    };
-    for (int i = 0; i < sizeof(caller_saved_regs) / sizeof(caller_saved_regs[0]); i++) {
-        riscv_env->gpr_id[i] = 0;
+    if (riscv_env->priv == PRV_U) {
+        static const int caller_saved_regs[] = {
+            1, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31
+        };
+        for (int i = 0; i < sizeof(caller_saved_regs) / sizeof(caller_saved_regs[0]); i++) {
+            riscv_env->gpr_id[i] = 0;
+        }
     }
 }
 
@@ -455,7 +466,7 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
     }
     
     return result;
-}
+ }
 
 #endif /* TARGET_SIGRISCV */
 
