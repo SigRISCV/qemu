@@ -7,6 +7,8 @@
 #include "target/riscv/cpu_bits.h"
 #include "qarma.h"
 
+#define QARMA_ROUND 7
+
 static inline void sigriscv_setgprid_checkpriv(CPUArchState *env, uint32_t gpr_idx, target_ulong id)
 {
     CPURISCVState *riscv_env = (CPURISCVState *)env;
@@ -57,7 +59,7 @@ static target_ulong sigriscv_decrypt(CPUArchState *env,
     target_ulong new_tweak = base_id_shifted | addr_lower;
     // printf("decrypt: base_id = %lx, addr_lower = %lx, new_tweak = %lx\n", base_id, addr_lower, new_tweak);
     
-    target_ulong plaintext = qarma64_dec(secret, new_tweak, keyl, keyh, 7);
+    target_ulong plaintext = qarma64_dec(secret, new_tweak, keyl, keyh, QARMA_ROUND);
     return plaintext;
 }
 
@@ -127,7 +129,7 @@ static target_ulong sigriscv_encrypt(CPUArchState *env,
     target_ulong new_tweak = base_id_shifted | addr_lower;
     // printf("encrypt: base_id = %lx, addr_lower = %lx, new_tweak = %lx\n", base_id, addr_lower, new_tweak);
 
-    target_ulong secret = qarma64_enc(plain, new_tweak, keyl, keyh, 7);
+    target_ulong secret = qarma64_enc(plain, new_tweak, keyl, keyh, QARMA_ROUND);
     return secret;
 }
 
@@ -220,6 +222,8 @@ void helper_sigriscv_set_gpr_newid(CPUArchState *env, uint32_t reg)
 
 static target_ulong sigriscv_hash_callee_regs(CPUArchState *env)
 {
+    return 0;
+
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     target_ulong hash = 0;
     
@@ -258,12 +262,14 @@ void HELPER(sigriscv_switch_sigmode)(CPUArchState *env, target_ulong next_pc)
     riscv_env->exitraw = next_pc;
     riscv_env->hashsig = sigriscv_hash_callee_regs(env);
     if (riscv_env->priv == PRV_U) {
-        static const int caller_saved_regs[] = {
-            1, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31
-        };
-        for (int i = 0; i < sizeof(caller_saved_regs) / sizeof(caller_saved_regs[0]); i++) {
-            riscv_env->gpr_id[caller_saved_regs[i]] = 0;
-        }
+        // static const int caller_saved_regs[] = {
+        //     1, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31
+        // };
+        // for (int i = 0; i < sizeof(caller_saved_regs) / sizeof(caller_saved_regs[0]); i++) {
+        //     riscv_env->gpr_id[caller_saved_regs[i]] = 0;
+        // }
+        riscv_env->gpr_id[10] = 0;
+        riscv_env->gpr_id[11] = 0;
     }
 }
 
@@ -455,6 +461,10 @@ target_ulong helper_sigriscv_debug(CPUArchState *env, target_ulong imm,
             
             result = csr_val;
         }
+        break;
+    case 5:
+        fprintf(stderr, "DEBUG EXIT");
+        exit(0);
         break;
 
     default:
