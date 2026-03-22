@@ -1,5 +1,16 @@
 #ifdef TARGET_SIGRISCV
 
+static void add_insn_cycle(DisasContext *ctx, int num)
+{
+    arg_addi arg;
+    arg.rd = 0;
+    arg.rs1 = 0;
+    arg.imm = 0;
+    for (int i=0;i < num; i++) {
+        trans_addi(ctx, &arg);
+    }
+}
+
 static bool trans_ls(DisasContext *ctx, arg_ls *a)
 {
     REQUIRE_64_OR_128BIT(ctx);
@@ -21,6 +32,7 @@ static bool trans_ls(DisasContext *ctx, arg_ls *a)
     TCGv_i32 rd_idx = tcg_constant_i32(a->rd);
     TCGv decrypted = tcg_temp_new();
     gen_helper_sigriscv_decrypt_setid(decrypted, tcg_env, secret, addr, rs1_idx, rd_idx);
+    add_insn_cycle(ctx, 3);
 
     if (a->rd != 0) {
         gen_set_gpr_restore_id(ctx, a->rd, decrypted);
@@ -50,6 +62,7 @@ static bool trans_ls_map(DisasContext *ctx, arg_ls_map *a)
     TCGv_i32 rd_idx = tcg_constant_i32(a->rd);
     TCGv decrypted = tcg_temp_new();
     gen_helper_sigriscv_decrypt_setid_encmap(decrypted, tcg_env, secret, addr, rs1_idx, rd_idx);
+    add_insn_cycle(ctx, 3);
 
     if (a->rd != 0) {
         gen_set_gpr_restore_id(ctx, a->rd, decrypted);
@@ -79,6 +92,7 @@ static bool trans_ss(DisasContext *ctx, arg_ss *a)
     TCGv_i32 rs1_idx = tcg_constant_i32(a->rs1);
     TCGv_i32 rs2_idx = tcg_constant_i32(a->rs2);
     gen_helper_sigriscv_encrypt_withid(encrypted, tcg_env, src, addr, rs1_idx, rs2_idx);
+    add_insn_cycle(ctx, 3);
 
     tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
     
@@ -106,6 +120,7 @@ static bool trans_ss_id(DisasContext *ctx, arg_ss *a)
     TCGv_i32 rs1_idx = tcg_constant_i32(a->rs1);
     TCGv_i32 rs2_idx = tcg_constant_i32(a->rs2);
     gen_helper_sigriscv_encrypt_withid_encmap(encrypted, tcg_env, src, addr, rs1_idx, rs2_idx);
+    add_insn_cycle(ctx, 3);
 
     tcg_gen_qemu_st_tl(encrypted, addr, ctx->mem_idx, memop);
     
