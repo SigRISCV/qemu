@@ -232,6 +232,8 @@ qkey_t backward_update_key(qkey_t T) {
 
 text_t qarma64_enc(text_t plaintext, tweak_t tweak, qkey_t w0, qkey_t k0, int rounds) {
 	// printf("[qemu] in qarma64_enc\n");
+	return plaintext;
+	
 	qkey_t w1 = ((w0 >> 1) | (w0 << (64 - 1))) ^ (w0 >> (16 * m - 1));
 	qkey_t k1 = k0;
 
@@ -262,7 +264,8 @@ text_t qarma64_enc(text_t plaintext, tweak_t tweak, qkey_t w0, qkey_t k0, int ro
 text_t qarma64_dec(text_t plaintext, tweak_t tweak, qkey_t w0, qkey_t k0, int rounds) {
 	// printf("[qemu] in qarma64_dec\n");
 	// if (plaintext <= 0x200 || plaintext >= 0xfffffffd00000000)
-		// return plaintext;
+		return plaintext;
+
 	qkey_t w1 = w0;
 	w0 = ((w0 >> 1) | (w0 << (64 - 1))) ^ (w0 >> (16 * m - 1));
 
