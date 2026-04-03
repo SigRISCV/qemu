@@ -102,16 +102,6 @@ static bool trans_jal(DisasContext *ctx, arg_jal *a)
 {
     gen_jal(ctx, a->rd, a->imm);
 
-#ifdef TARGET_SIGRISCV
-    /* ID operations only in U-mode */
-    if (ctx->priv == PRV_U && a->rd != 0) {
-        /* Inherit PC's ID from env->pc_id */
-        TCGv pc_id = tcg_temp_new();
-        tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
-        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rd), pc_id);
-    }
-#endif
-
     return true;
 }
 
@@ -440,6 +430,7 @@ static bool gen_load(DisasContext *ctx, arg_lb *a, MemOp memop)
     bool out;
 
     memop |= mo_endian(ctx);
+    memop |= MO_ALIGN;
     if (ctx->cfg_ptr->ext_zama16b) {
         memop |= MO_ATOM_WITHIN16;
     }
@@ -517,11 +508,13 @@ static bool gen_store_tl(DisasContext *ctx, arg_sb *a, MemOp memop)
 
     tcg_gen_qemu_st_tl(data, addr, ctx->mem_idx, memop);
 
+/*
 #ifdef TARGET_SIGRISCV
     if (ctx->priv == PRV_U && a->rs2 != 0){
         gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(a->rs2), ctx->zero);
     }
 #endif
+*/
     return true;
 }
 
@@ -554,6 +547,7 @@ static bool gen_store_i128(DisasContext *ctx, arg_sb *a, MemOp memop)
 static bool gen_store(DisasContext *ctx, arg_sb *a, MemOp memop)
 {
     memop |= mo_endian(ctx);
+    memop |= MO_ALIGN;
     if (ctx->cfg_ptr->ext_zama16b) {
         memop |= MO_ATOM_WITHIN16;
     }
