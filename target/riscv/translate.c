@@ -685,6 +685,16 @@ static void gen_jal(DisasContext *ctx, int rd, target_ulong imm)
     gen_pc_plus_diff(succ_pc, ctx, ctx->cur_insn_len);
     gen_set_gpr(ctx, rd, succ_pc);
 
+#ifdef TARGET_SIGRISCV
+    /* ID operations only in U-mode */
+    if (ctx->priv == PRV_U && rd != 0) {
+        /* Inherit PC's ID from env->pc_id */
+        TCGv pc_id = tcg_temp_new();
+        tcg_gen_ld_tl(pc_id, tcg_env, offsetof(CPURISCVState, pc_id));
+        gen_helper_sigriscv_set_gpr_id(tcg_env, tcg_constant_i32(rd), pc_id);
+    }
+#endif
+
     gen_goto_tb(ctx, 0, imm); /* must use this for safety */
     ctx->base.is_jmp = DISAS_NORETURN;
 }
