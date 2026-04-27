@@ -87,6 +87,7 @@ target_ulong HELPER(sigriscv_decrypt_setid)(CPUArchState *env,
                                          uint32_t rs1_idx,
                                          uint32_t rd_idx)
 {
+    return secret;
     if (!is_sigriscv_use_enabled(env)) {
         return secret;
     }
@@ -99,6 +100,7 @@ target_ulong HELPER(sigriscv_decrypt_setid_encmap)(CPUArchState *env,
                                          uint32_t rs1_idx,
                                          uint32_t rd_idx)
 {
+    return secret;
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     if (!is_sigriscv_use_enabled(env)) {
         return secret;
@@ -161,6 +163,7 @@ target_ulong HELPER(sigriscv_encrypt_withid)(CPUArchState *env,
                                          uint32_t rs1_idx,
                                          uint32_t rs2_idx)
 {
+    return plain;
     if (!is_sigriscv_use_enabled(env)) {
         return plain;
     }
@@ -173,6 +176,7 @@ target_ulong HELPER(sigriscv_encrypt_withid_encmap)(CPUArchState *env,
                                          uint32_t rs1_idx,
                                          uint32_t rs2_idx)
 {
+    return plain;
     CPURISCVState *riscv_env = (CPURISCVState *)env;
     if (!is_sigriscv_use_enabled(env)) {
         return plain;
